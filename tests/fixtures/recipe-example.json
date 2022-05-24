@@ -1,0 +1,3 @@
+{
+	"Example": [ "{SURNAME}^{GIVENNAME}", "{YYYY}{MM}{DD}-{LABEL}.{EXT}" ]
+}
