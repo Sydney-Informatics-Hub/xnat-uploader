@@ -1,67 +1,137 @@
+import re
+import json
 
-import re, json
+
+class RecipeException(Exception):
+    pass
+
 
 def parse_recipe(recipe):
-	"""Converts a recipe pattern into a regular expression and list of
-	variable names. Works as follows:
+    """
+    Parse a recipe string and return a regular expression which matches the
+    recipe.
 
-	{A} {NN} {MM} {YYYY} -> a pattern which matches n digits
-	{ANY_OTHER_STRING} -> a pattern which does a non-greedy match to the next
-	                      character after the pattern
+    A recipe is a string with one or more parameter names between {}
+    indicating parts of an input value (a filepath, for example) which we want
+    to capture into those parameters. For example:
 
-	returns a regular expression with (?P<name>..) groups for each of the
-	patterns.
+    "{SURNAME}-{GIVENNAME}-{YYYY}{MM}{DD}.txt"
 
-	"""
+    when matched against
 
+    "Duck-Donald-19300831.txt"
 
-	regexp = ''
-	for macro in re.finditer(r'{(.*?)}([^{]*)', recipe):
-		var, delimiter = macro.group(1, 2)
-		if re.match(var[0] + '+$', var):
-			regexp += f'(?P<{var}>' + (r'\d' * len(var)) + ')'
-		else:
-			if delimiter != "":
-				c = delimiter[0]
-				regexp += f'(?P<{var}>[^{c}]*?)'
-			else:
-				regexp += f'(?P<{var}>.*)'
-		regexp += re.escape(delimiter)
-	return re.compile(regexp)
+    should return the dict
+
+    {
+            "SURNAME": "Duck",
+            "GIVENNAME": "Donald",
+            "YYYY":
+            "1930",
+            "MM": "08",
+            "DD": "31"
+    }
+
+    This function converts a recipe into a regexp object with named group
+    parameters. This can be used to match target strings and return the
+    desired dict with the match.groupdict() function
+
+    Parameter names which consist of one or more of the same character are
+    converted into patterns which match that number of digits. All other
+    parameter names are converted into a non-greedy match up to the next
+    character after the parameter in the pattern, or the end of the recipe.
+
+    A set of all the params is returned so that calling code can know what to
+    expect from the pattern without having to run it or reparse the recipe.
+
+    ---
+    recipe (str): a recipe as described abov
+
+    Returns: set of str, re.Pattern
+
+    Raises: an re.error if for some reason the resulting regexp can't compile
+    - for instance, if a parameter name has illegal characters or is repeated.
+    """
+
+    regexp = ""
+    params = set()
+    for macro in re.finditer(r"{(.*?)}([^{]*)", recipe):
+        param, delimiter = macro.group(1, 2)
+        if param in params:
+            raise RecipeException(f"Recipe has repeated parameter: {param}")
+        if re.match(param[0] + "+$", param):
+            regexp += f"(?P<{param}>" + (r"\d" * len(param)) + ")"
+        else:
+            if delimiter != "":
+                c = delimiter[0]
+                regexp += f"(?P<{param}>[^{c}]*?)"
+            else:
+                regexp += f"(?P<{param}>.*)"
+        regexp += re.escape(delimiter)
+        params.add(param)
+
+    return params, re.compile(regexp)
 
 
 def load_recipes(recipe_json):
-	"""Reads in a JSON file associating labels with recipes, and returns
-	a dict of re objects keyed by labels
-	"""
-	with open(recipe_json, "r") as rfh:
-		recipes = json.load(rfh)
-		for label, patterns in recipes.items():
-			recipes[label] = [ parse_recipe(pattern) for pattern in patterns ]
-	return recipes
+    """
+    Loads and parses a JSON recipe file, keyed by label. The value for each
+    label should be a list of recipe strings. The return value is the superset
+    of all the parameters in all recipes, and a dict of list of re.Patterns by
+    label.
+    ---
+    recipe_json (Path): the JSON file
 
-def match_recipe(recipe, parts):
-	""" given a list of patterns and a filepath, see if they match, 
-	starting from the end
+    Returns: set of str, dict of { str: [ re.Pattern ] }
+    """
+    allparams = set()
+    with open(recipe_json, "r") as rfh:
+        recipes = json.load(rfh)
+        for label, patterns in recipes.items():
+            recipes[label] = []
+            for pattern in patterns:
+                params, pattern_re = parse_recipe(pattern)
+                allparams = allparams.union(params)
+                recipes[label].append(pattern_re)
+    return allparams, recipes
 
-	ie if the path is [ dir1, dir2, dir3, dir4, file ]
 
-	and the recipe is [ pat1, pat2, pat3 ]
+def match_recipe(recipes, path):
+    """
+    Attempt to match a pathlib.Path against a list of recipe patterns,
+    returning the collected values if successful.
 
-	then try to match file -> pat3, dir4 -> pat2 and dir3 -> pat1
+    The list of n recipes is matched against the last n parts of the path. For
+    example, a recipe list equivalent to
 
-	TODO: explain this better!
-	"""
-	if len(parts) < len(recipe):
-		print(f"Fewer parts {parts} than recipe {recipe}")
-		return None
-	matchparts = parts[-len(recipe):]
-	values = {}
-	for pattern in recipe:
-		m = pattern.match(matchparts[0])
-		if not m:
-			return None
-		for k, v in m.groupdict().items():
-			values[k] = v
-		matchparts = matchparts[1:]
-	return values
+    [ "{YYYY}-{MM}-{DD}", "{FILENAME}.txt" ]
+
+    would successfully match the path
+
+    "root" / "subdir" / "2022-05-24" / "myfile.txt"
+
+    and return a dictionary with values for YYYY, MM, DD and FILENAME.
+
+    If any recipes have overlapping parameters, the last value parse overwrites
+    previous values.
+
+    Values matching numeric patterns are not converted into numeric types.
+    ---
+    recipes: list of re.Pattern
+    path: pathlib.Path
+
+    Returns: None, or dict of { str: str }
+    """
+    parts = path.parts
+    if len(parts) < len(recipes):
+        return None
+    matchparts = parts[-len(recipes) :]
+    values = {}
+    for pattern in recipes:
+        m = pattern.match(matchparts[0])
+        if not m:
+            return None
+        for k, v in m.groupdict().items():
+            values[k] = v
+        matchparts = matchparts[1:]
+    return values

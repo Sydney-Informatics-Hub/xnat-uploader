@@ -1,52 +1,59 @@
 #!/bin/env python
 
 import argparse
-import os
-import json
-import re
 
 from pathlib import Path
 from openpyxl import Workbook
 from recipe import load_recipes, match_recipe
 
-def show_help():
-	pass
 
-
-
-
-def scan(source, recipes):
-	"""Walks a filesystem looking for DICOMs and trying to match them against
-	the recipe, and builds a spreadsheet of the results"""
-
-	wb = Workbook()
-	ws = wb.active
-	for label, file, values in scan_files(source, recipes):
-		print(label, file, values)
-	return wb
-
-
-
-def scan_files(source, recipes):
-	"""Scans the filesystem looking for matches and yielding results"""
-
-	for file in source.glob("**/*"):
-		label, values = match_recipes(recipes, file)
-		if label:
-			yield label, file, values
+def scan_files(params, recipes, root, logfile):
+    """
+    Scan the filesystem under root for files which match recipes and write
+    out the resulting values to a spreadsheet.
+    ---
+    params: set of all parameters for the recipes
+    recipes: dict of { str: [ re.Pattern ] }
+    root: pathlib.Path
+    logfile: pathlib.Path
+    """
+    wb = Workbook()
+    ws = wb.active
+    columns = sorted(list(params))
+    ws.append(["Label", "File"] + columns)
+    for file in root.glob("**/*"):
+        label, values = match_recipes(recipes, file)
+        print(file, label, values)
+        if label:
+            row = [values[c] for c in columns]
+            ws.append([label, str(file)] + row)
+    wb.save(logfile)
 
 
 def match_recipes(recipes, file):
-	for label, recipe in recipes.items():
-		values = match_recipe(recipe, file.parts)
-		if values:
-			return label, values
-	return None, None 
+    """
+    Try to match a filepath against each of the recipes and return the label
+    and values for the first one which matches.
+    ---
+    recipes: dict of { str: [ re.Pattern ] }
+    file: pathlib.Path
 
+    returns: tuple of str, dict of { str: str }
+                     or tuple of None, None
+    """
+    for label, recipe in recipes.items():
+        values = match_recipe(recipe, file)
+        if values:
+            return label, values
+    return None, None
 
 
 def upload(args):
-	pass
+    pass
+
+
+def show_help():
+    pass
 
 
 def main():
@@ -58,13 +65,14 @@ def main():
     args = ap.parse_args()
 
     if args.operation == "help":
-    	show_help()
+        show_help()
     elif args.operation == "upload":
-    	upload(args)
+        upload(args)
     else:
-    	recipes = load_recipes(args.recipe)
-    	wb = scan(args.source, recipes)
-    	# wb.save(args.log)
+        params, recipes = load_recipes(args.recipe)
+        print(f"columns = {params}")
+        scan_files(params, recipes, args.source, args.log)
+
 
 if __name__ == "__main__":
     main()

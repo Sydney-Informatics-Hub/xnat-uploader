@@ -1,0 +1,1 @@
+label1: {SURNAME}^{GIVENNAME}/{YYYY}{MM}{DD}
