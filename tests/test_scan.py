@@ -2,10 +2,12 @@ from openpyxl import load_workbook
 from pathlib import Path
 from xnatuploader import load_recipes, scan_files
 
-RECIPE = "fixtures/recipe-example.json"
-SOURCE = "fixtures/source"
-LOG = "fixtures/log.xlsx"
-LOG2 = "fixtures/my_log.xlsx"
+
+FIXTURES_DIR = Path("tests") / ("fixtures")
+
+RECIPE = FIXTURES_DIR / "recipe-example.json"
+SOURCE = FIXTURES_DIR / "source"
+EXPECT_LOG = FIXTURES_DIR / "log.xlsx"
 
 
 def assert_spreadsheets_equal(expect, got):
@@ -22,6 +24,6 @@ def test_scan(tmp_path):
     params, recipes = load_recipes(RECIPE)
     log = tmp_path / "log.xlsx"
     scan_files(params, recipes, Path(SOURCE), log)
-    expect_wb = load_workbook(LOG)
+    expect_wb = load_workbook(EXPECT_LOG)
     got_wb = load_workbook(log)
     assert_spreadsheets_equal(expect_wb, got_wb)
