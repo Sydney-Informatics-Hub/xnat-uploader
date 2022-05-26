@@ -22,7 +22,6 @@ def scan_files(params, recipes, root, logfile):
     ws.append(["Label", "File"] + params)
     for file in root.glob("**/*"):
         label, values = match_recipes(recipes, file)
-        print(file, label, values)
         if label:
             row = [values[p] for p in params]
             ws.append([label, str(file)] + row)
