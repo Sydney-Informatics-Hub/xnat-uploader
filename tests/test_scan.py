@@ -4,7 +4,6 @@ from xnatuploader import load_recipes, scan_files
 
 
 FIXTURES_DIR = Path("tests") / ("fixtures")
-
 RECIPE = FIXTURES_DIR / "recipe-example.json"
 SOURCE = FIXTURES_DIR / "source"
 EXPECT_LOG = FIXTURES_DIR / "log.xlsx"
