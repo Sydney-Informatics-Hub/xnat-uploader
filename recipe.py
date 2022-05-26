@@ -41,20 +41,21 @@ def parse_recipe(recipe):
     parameter names are converted into a non-greedy match up to the next
     character after the parameter in the pattern, or the end of the recipe.
 
-    A set of all the params is returned so that calling code can know what to
+    A list of all the params is returned so that calling code can know what to
     expect from the pattern without having to run it or reparse the recipe.
+    Params are listed in the order they appear in the pattern.
 
     ---
     recipe (str): a recipe as described abov
 
-    Returns: set of str, re.Pattern
+    Returns: list of str, re.Pattern
 
     Raises: an re.error if for some reason the resulting regexp can't compile
     - for instance, if a parameter name has illegal characters or is repeated.
     """
 
     regexp = ""
-    params = set()
+    params = []
     for macro in re.finditer(r"{(.*?)}([^{]*)", recipe):
         param, delimiter = macro.group(1, 2)
         if param in params:
@@ -68,7 +69,7 @@ def parse_recipe(recipe):
             else:
                 regexp += f"(?P<{param}>.*)"
         regexp += re.escape(delimiter)
-        params.add(param)
+        params.append(param)
 
     return params, re.compile(regexp)
 
@@ -82,17 +83,17 @@ def load_recipes(recipe_json):
     ---
     recipe_json (Path): the JSON file
 
-    Returns: set of str, dict of { str: [ re.Pattern ] }
+    Returns: list of str, dict of { str: [ re.Pattern ] }
     """
-    allparams = set()
+    allparams = []
     with open(recipe_json, "r") as rfh:
         recipes = json.load(rfh)
         for label, patterns in recipes.items():
             recipes[label] = []
             for pattern in patterns:
                 params, pattern_re = parse_recipe(pattern)
-                allparams = allparams.union(params)
                 recipes[label].append(pattern_re)
+                allparams += [p for p in params if p not in allparams]
     return allparams, recipes
 
 

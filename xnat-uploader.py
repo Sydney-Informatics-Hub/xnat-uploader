@@ -19,13 +19,12 @@ def scan_files(params, recipes, root, logfile):
     """
     wb = Workbook()
     ws = wb.active
-    columns = sorted(list(params))
-    ws.append(["Label", "File"] + columns)
+    ws.append(["Label", "File"] + params)
     for file in root.glob("**/*"):
         label, values = match_recipes(recipes, file)
         print(file, label, values)
         if label:
-            row = [values[c] for c in columns]
+            row = [values[p] for p in params]
             ws.append([label, str(file)] + row)
     wb.save(logfile)
 
@@ -70,7 +69,6 @@ def main():
         upload(args)
     else:
         params, recipes = load_recipes(args.recipe)
-        print(f"columns = {params}")
         scan_files(params, recipes, args.source, args.log)
 
 

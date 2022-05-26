@@ -1,0 +1,9 @@
+﻿Label,File,SURNAME,GIVENNAME,YYYY,MM,DD,LABEL,EXT
+Example,tests/fixtures/source/Subdir/Smith^John/20200303-scan1.txt,Smith,John,2020,03,03,scan1,txt
+Example,tests/fixtures/source/DOE^JOHN/20210430-scan1.txt,DOE,JOHN,2021,04,30,scan1,txt
+Example,tests/fixtures/source/DOE^JOHN/20210919-scan1.txt,DOE,JOHN,2021,09,19,scan1,txt
+Example,tests/fixtures/source/DOE^JOHN/20200312-scan2.txt,DOE,JOHN,2020,03,12,scan2,txt
+Example,tests/fixtures/source/DOE^JOHN/20200312-scan1.txt,DOE,JOHN,2020,03,12,scan1,txt
+Example,tests/fixtures/source/ROE^JANE/20190115-scan1.txt,ROE,JANE,2019,01,15,scan1,txt
+Example,tests/fixtures/source/ROE^JANE/20200623-scan1.txt,ROE,JANE,2020,06,23,scan1,txt
+Example,tests/fixtures/source/ROE^JANE/20210414-scan1.txt,ROE,JANE,2021,04,14,scan1,txt
