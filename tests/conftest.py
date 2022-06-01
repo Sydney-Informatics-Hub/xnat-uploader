@@ -3,7 +3,9 @@ import pytest
 
 
 @pytest.fixture(scope="session")
-def xnat_session():
+def xnat_project():
     xnat4tests.launch_xnat()
-    yield xnat4tests.connect()
+    xnat = xnat4tests.connect()
+    project = xnat.classes.ProjectData(parent=xnat, label="Test")
+    yield xnat, project
     xnat4tests.stop_xnat()
