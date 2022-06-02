@@ -1,5 +1,4 @@
 import re
-import json
 
 
 class RecipeException(Exception):
@@ -74,26 +73,25 @@ def parse_recipe(recipe):
     return params, re.compile(regexp)
 
 
-def load_recipes(recipe_json):
+def parse_recipes(recipe_config):
     """
-    Loads and parses a JSON recipe file, keyed by label. The value for each
+    Parses a set of recipes from the config, keyed by label. The value for each
     label should be a list of recipe strings. The return value is the superset
     of all the parameters in all recipes, and a dict of list of re.Patterns by
     label.
     ---
-    recipe_json (Path): the JSON file
+    recipe_config: dict of { str: str }
 
     Returns: list of str, dict of { str: [ re.Pattern ] }
     """
     allparams = []
-    with open(recipe_json, "r") as rfh:
-        recipes = json.load(rfh)
-        for label, patterns in recipes.items():
-            recipes[label] = []
-            for pattern in patterns:
-                params, pattern_re = parse_recipe(pattern)
-                recipes[label].append(pattern_re)
-                allparams += [p for p in params if p not in allparams]
+    recipes = {}
+    for label, patterns in recipe_config.items():
+        recipes[label] = []
+        for pattern in patterns:
+            params, pattern_re = parse_recipe(pattern)
+            recipes[label].append(pattern_re)
+            allparams += [p for p in params if p not in allparams]
     return allparams, recipes
 
 
