@@ -1,5 +1,16 @@
 import xnat4tests
 import pytest
+from pathlib import Path
+
+
+@pytest.fixture
+def test_files():
+    fixtures_dir = Path("tests") / "fixtures"
+    return {
+        "config": fixtures_dir / "recipe-xnat.json",
+        "source": fixtures_dir / "source",
+        "log": fixtures_dir / "log.xlsx",
+    }
 
 
 @pytest.fixture(scope="session")
