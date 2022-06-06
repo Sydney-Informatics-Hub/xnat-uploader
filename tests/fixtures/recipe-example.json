@@ -1,3 +1,17 @@
 {
-	"Example": [ "{Name}-{ID}", "{YYYY}{MM}{DD}-{Label}.dcm" ]
+	"recipes": {
+		"Scans": [
+			"{SubjectName}-{SubjectId}",
+			"{YYYY}{MM}{DD}-{Label}.dcm"
+		]
+	},
+	"mappings": {
+		"Subject": [ "SubjectId" ],
+		"Session": [ "YYYY", "MM","DD" ],
+		"Dataset": [ "Label" ]
+	},
+	"xnat": {
+		"server": "https://localhost:8080",
+		"project": ""
+	}
 }
