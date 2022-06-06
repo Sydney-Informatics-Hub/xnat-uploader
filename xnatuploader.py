@@ -32,7 +32,12 @@ def upload(xnat_session, matcher, project, logfile):
     """
     Load an Excel logfile created with scan and upload the files which the user
     has marked for upload, and which haven't been uploaded yet. Keeps track of
-    successful uploads in the "success" column
+    successful uploads in the "success" column.
+    ---
+    xnat_session: an XnatPy session, as returned by xnatutils.base.connect
+    matcher: a Matcher
+    project: the XNAT project id to which we're uploading
+    logfile: pathlib.Path to the Excel spreadsheet listing files
     """
     wb = load_workbook(logfile)
     ws = wb.active

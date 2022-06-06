@@ -1,3 +1,4 @@
+import pytest
 import xnatutils
 from pathlib import Path
 
@@ -8,6 +9,7 @@ DATASET_ID = "DATASET01"
 # XNAT : Project / Subject / Session
 
 
+@pytest.mark.skip(reason="incomplete")
 def test_upload_one(xnat_project):
     xnat, project = xnat_project
     subject = xnat.classes.SubjectData(parent=project, label="subject001")

@@ -1,10 +1,13 @@
 from openpyxl import load_workbook
 from pathlib import Path
-from xnatuploader import load_recipes, scan_files
+import json
+
+from matcher import Matcher
+from xnatuploader import scan
 
 
 FIXTURES_DIR = Path("tests") / "fixtures"
-RECIPE = FIXTURES_DIR / "recipe-example.json"
+CONFIG = FIXTURES_DIR / "recipe-xnat.json"
 SOURCE = FIXTURES_DIR / "source"
 EXPECT_LOG = FIXTURES_DIR / "log.xlsx"
 
@@ -20,9 +23,11 @@ def assert_spreadsheets_equal(expect, got):
 
 
 def test_scan(tmp_path):
-    params, recipes = load_recipes(RECIPE)
+    with open(CONFIG, "r") as fh:
+        config_json = json.load(fh)
+        matcher = Matcher(config_json)
     log = tmp_path / "log.xlsx"
-    scan_files(params, recipes, Path(SOURCE), log)
+    scan(matcher, Path(SOURCE), log)
     expect_wb = load_workbook(EXPECT_LOG)
     got_wb = load_workbook(log)
     assert_spreadsheets_equal(expect_wb, got_wb)
