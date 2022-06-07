@@ -233,7 +233,7 @@ class FileMatch:
             return self._columns
         if self.label is not None:
             if self.error is None:
-                self._columns = [self.label, self.file, "Y", ""]
+                self._columns = [self.label, self.file, "Y", self.status]
             else:
                 self._columns = [self.label, self.file, "N", self.error]
             if self.xnat_params is not None:

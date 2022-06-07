@@ -7,11 +7,8 @@ from openpyxl import load_workbook
 
 from pathlib import Path
 
-from xnatuploader import upload
+from xnatuploader import scan, upload
 from matcher import Matcher
-
-from .utils import assert_spreadsheets_equal
-
 
 FIXTURES_DIR = Path("tests/fixtures")
 DICOM = FIXTURES_DIR / "sample_dicoms" / "image-00000.dcm"
@@ -26,12 +23,29 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
     with open(test_files["config"], "r") as fh:
         config_json = json.load(fh)
         matcher = Matcher(config_json)
-    log = tmp_path / "log.xlsx"
-    shutil.copy(test_files["log"], log)
-    upload(xnat_session, matcher, project, log)
-    expect_wb = load_workbook(test_files["log"])
-    got_wb = load_workbook(log)
-    assert_spreadsheets_equal(expect_wb, got_wb)
+    log_scanned = tmp_path / "log_scanned.xlsx"
+    log_uploaded = tmp_path / "log_uploaded.xlsx"
+    scan(matcher, Path(test_files["source"]), log_scanned)
+    shutil.copy(log_scanned, log_uploaded)
+    upload(xnat_session, matcher, project.name, log_uploaded)
+    scanned_wb = load_workbook(log_scanned)
+    scanned_ws = scanned_wb.active
+    uploaded_wb = load_workbook(log_uploaded)
+    uploaded_ws = uploaded_wb.active
+    uploads = {}
+    for row in uploaded_ws.values:
+        if row[0] != "Recipe":
+            upload_row = matcher.from_spreadsheet(row)
+            if upload_row.selected:
+                uploads[upload_row.file] = upload_row
+    for row in scanned_ws.values:
+        if row[0] != "Recipe":
+            scanned_row = matcher.from_spreadsheet(row)
+            if scanned_row.selected:
+                assert scanned_row.file in uploads
+                assert uploads[scanned_row.file].status == "success"
+                del uploads[scanned_row.file]
+    assert len(uploads) == 0
 
 
 @pytest.mark.skip(reason="incomplete")
