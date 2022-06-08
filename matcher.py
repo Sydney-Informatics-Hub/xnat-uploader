@@ -1,6 +1,9 @@
 import re
+import logging
 
 XNAT_HIERARCHY = ["Subject", "Session", "Dataset"]
+
+logger = logging.getLogger(__name__)
 
 
 class RecipeException(Exception):
@@ -11,6 +14,7 @@ class Matcher:
     def __init__(self, config_json):
         self.parse_recipes(config_json["recipes"])
         self.mappings = config_json["mappings"]
+        self._headers = None
         for k, vs in self.mappings.items():
             for v in vs:
                 if v not in self.params:
@@ -19,6 +23,13 @@ class Matcher:
                     )
         if set(self.mappings.keys()) != set(XNAT_HIERARCHY):
             raise Exception(f"Must have mappings for each of {XNAT_HIERARCHY}")
+
+    @property
+    def headers(self):
+        if self._headers is None:
+            self._headers = ["Recipe", "File", "Upload", "Status"]
+            self._headers += XNAT_HIERARCHY + self.params
+        return self._headers
 
     def parse_recipes(self, recipe_config):
         """
@@ -132,9 +143,11 @@ class Matcher:
         try:
             match.success = True
             match.xnat_params = self.map_values(values)
+            match.selected = "Y"
         except Exception as e:
             match.success = False
             match.error = str(e)
+            match.selected = "N"
         return match
 
     def from_spreadsheet(self, row):
@@ -197,7 +210,7 @@ class Matcher:
         xnat_params = {}
         for xnat_cat, path_vars in self.mappings.items():
             xnat_params[xnat_cat] = "".join([values[v] for v in path_vars])
-        return [xnat_params[xh] for xh in XNAT_HIERARCHY]
+        return xnat_params
 
 
 class FileMatch:
@@ -216,9 +229,6 @@ class FileMatch:
         self.error = None
         self.status = None
         self.selected = None
-        self.subject = None
-        self.session = None
-        self.dataset = None
         self._columns = None
         self._status = None
         self._selected = None
@@ -232,14 +242,18 @@ class FileMatch:
         if self._columns is not None:
             return self._columns
         if self.label is not None:
-            if self.error is None:
-                self._columns = [self.label, self.file, "Y", self.status]
+            self._columns = [self.label, self.file, self.selected]
+            if self.error is not None:
+                self._columns += [f"{self.status}: {self.error}"]
             else:
-                self._columns = [self.label, self.file, "N", self.error]
-            if self.xnat_params is not None:
-                self._columns += self.xnat_params
+                if self.status is None:
+                    self._columns += [""]
+                else:
+                    self._columns += [self.status]
+            if self.xnat_params is None:
+                self._columns += ["", "", ""]
             else:
-                self._columns += ["" for x in XNAT_HIERARCHY]
+                self._columns += [self.xnat_params[p] for p in XNAT_HIERARCHY]
             if self.values is not None:
                 self._columns += [self.values[p] for p in self.matcher.params]
         else:
@@ -253,10 +267,11 @@ class FileMatch:
         """
         self.label = row[0]
         self.file = row[1]
-        self.selected = row[2] == "Y"
+        self.selected = row[2]
         self.status = row[3]
-        self.subject = row[4]
-        self.session = row[5]
-        self.dataset = row[6]
-        # note - we don't load the rest of the spreadsheet columns because
-        # the upload process doesn't care about them
+        self.xnat_params = {"Subject": row[4], "Session": row[5], "Dataset": row[6]}
+        self.values = {}
+        c = 7
+        for p in self.matcher.params:
+            self.values[p] = row[c]
+            c += 1

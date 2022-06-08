@@ -3,14 +3,33 @@
 
 import argparse
 import json
-
+import logging
 from pathlib import Path
-from openpyxl import Workbook, load_workbook
-from matcher import Matcher, XNAT_HIERARCHY
 import xnatutils
+from openpyxl import Workbook, load_workbook
+
+from matcher import Matcher
+
+FILE_COLUMN_WIDTH = 50
 
 
-def scan(matcher, root, logfile):
+def new_workbook(matcher):
+    """
+    Make a new openpyxl workbook with headers from the matcher object
+    and niceties such as a wider column for the file names
+    ---
+    matcher: a Matcher
+    returns: a Workbook
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.column_dimensions["B"].width = FILE_COLUMN_WIDTH
+    ws.title = "Files"
+    ws.append(matcher.headers)
+    return wb
+
+
+def scan(matcher, root, logfile, include_unmatched=True):
     """
     Scan the filesystem under root for files which match recipes and write
     out the resulting values to a spreadsheet.
@@ -18,13 +37,17 @@ def scan(matcher, root, logfile):
     matcher: a PathMatcher
     root: pathlib.Path
     logfile: pathlib.Path
+    include_unmatched: bool
     """
-    wb = Workbook()
+    wb = new_workbook(matcher)
     ws = wb.active
-    ws.append(["Recipe", "File", "Upload", "Status"] + XNAT_HIERARCHY + matcher.params)
     for file in root.glob("**/*"):
         filematch = matcher.match(file)
-        ws.append(filematch.columns)
+        logging.debug(f"File {filematch.file} match {filematch.values}")
+        if filematch.values is not None or include_unmatched:
+            if filematch.values is not None:
+                logging.info(f"Matched {filematch.file}")
+            ws.append(filematch.columns)
     wb.save(logfile)
 
 
@@ -45,38 +68,46 @@ def upload(xnat_session, matcher, project, logfile):
     files = []
     for row in ws.values:
         if header:
-            columns = row
             header = False
         else:
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
+
+    # fixme: need to write out the spreadsheet progressively as we do the
+    # uploads if this is going to work with interrupted connections etc
     for file in files:
-        if file.selected:
+        if file.selected == "Y":
             if file.status == "success":
-                print(f"{file.file} - already uploaded")
+                logging.info(f"{file.file} already uploaded")
             else:
                 try:
+                    logging.info(f"Uploading: {file.file}")
                     upload_file(xnat_session, project, file)
                     file.status = "success"
                 except Exception as e:
+                    logging.warning(f"Upload {file.file} failed: {e}")
                     file.error = str(e)
                     file.status = "failed"
-    wb = Workbook()
+        else:
+            logging.debug(f"{file.file} not selected")
+    wb = new_workbook(matcher)
     ws = wb.active
-    ws.append(columns)
     for file in files:
+        logging.debug(f"rewriting row for {file.file}: {file.columns}")
+        logging.debug(f"xnat params = {file.xnat_params}")
+        logging.debug(f"values = {file.values}")
         ws.append(file.columns)
     wb.save(logfile)
 
 
 def upload_file(xnat_session, project, matchfile):
     xnatutils.put(
-        matchfile.session,
-        matchfile.dataset,
+        matchfile.xnat_params["Session"],
+        matchfile.xnat_params["Dataset"],
         matchfile.file,
         resource_name="DICOM",
         project_id=project,
-        subject_id=matchfile.subject,
+        subject_id=matchfile.xnat_params["Subject"],
         create_session=True,
         connection=xnat_session,
     )
@@ -88,13 +119,33 @@ def show_help():
 
 def main():
     ap = argparse.ArgumentParser("XNAT batch uploader")
-    ap.add_argument("--config", default="config.json", type=Path)
-    ap.add_argument("--source", default="./", type=Path)
-    ap.add_argument("--log", default="log.xlsx", type=Path)
-    ap.add_argument("--server", type=str)
-    ap.add_argument("--project", type=str)
-    ap.add_argument("operation", default="scan", choices=["scan", "upload", "help"])
+    ap.add_argument(
+        "--config", default="config.json", type=Path, help="JSON config file"
+    )
+    ap.add_argument(
+        "--source", default="./", type=Path, help="Base directory to scan for files"
+    )
+    ap.add_argument(
+        "--list", default="list.xlsx", type=Path, help="File list spreadsheet"
+    )
+    ap.add_argument("--server", type=str, help="URL of XNAT server")
+    ap.add_argument("--project", type=str, help="XNAT project ID")
+    ap.add_argument("--loglevel", type=str, default="info", help="Logging level")
+    ap.add_argument(
+        "--unmatched",
+        action="store_true",
+        default=False,
+        help="Whether to include unmatched files in list",
+    )
+    ap.add_argument(
+        "operation",
+        default="scan",
+        choices=["scan", "upload", "help"],
+        help="Operation",
+    )
     args = ap.parse_args()
+
+    logging.basicConfig(level=args.loglevel.upper())
 
     if args.operation == "help":
         show_help()
@@ -105,16 +156,17 @@ def main():
         matcher = Matcher(config_json)
 
     if args.operation == "scan":
-        scan(matcher, args.source, args.log)
+        logging.info(f"Scanning {args.source}")
+        scan(matcher, args.source, args.list, include_unmatched=args.unmatched)
     else:
         if not args.server:
-            print("Can't upload without a server")
+            logging.error("Can't upload without a server")
             exit()
         if not args.project:
-            print("Can't upload without a project ID")
+            logging.error("Can't upload without a project ID")
             exit()
         xnat_session = xnatutils.base.connect(args.server)
-        upload(xnat_session, matcher, args.project, args.log)
+        upload(xnat_session, matcher, args.project, args.list)
 
 
 if __name__ == "__main__":

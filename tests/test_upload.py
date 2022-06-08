@@ -44,6 +44,14 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
             if scanned_row.selected:
                 assert scanned_row.file in uploads
                 assert uploads[scanned_row.file].status == "success"
+                from_ls = xnatutils.ls(
+                    project_id=project.name,
+                    subject_id=scanned_row.subject,
+                    datatype="session",
+                    connection=xnat_session,
+                )
+                assert from_ls is not None
+                print(from_ls)
                 del uploads[scanned_row.file]
     assert len(uploads) == 0
 
