@@ -1,53 +1,105 @@
-# XNAT Uploader
+# xnatuploader
 
-Command-line tool for uploading moderately large collections of DICOM medical
-image files to XNAT.
+A command-line tool which builds on [xnatutis](https://github.com/Australian-Imaging-Service/xnatutils) to assist with uploading batches of DICOMs to XNAT.
 
-## Use case
+## Usage
 
-I have a collection of directories, which have subdirectories, which contain
-scans. I want to:
+xnatuploader runs in two passes. The first pass scans a filesystem and looks
+for filepaths which match certain patterns, uses the pattern matches to
+deduce the subject, session and dataset values for XNAT, and writes out a
+spreadsheet listing all of the files, the pattern matches and the extracted
+XNAT values.
 
-- upload some (or all) of these to XNAT
-- not have to do this one at a time
-- be able to restart the process and not redo too much if the network drops out
+The second pass reads in the spreadsheet and uses the extracted values to
+upload each file to XNAT. The spreadsheet is used to keep track of which
+files have been successfully uploaded, so that if the upload is interrupted
+or doesn't succeed for some files, it can be re-run without trying to upload
+those files which have already succeeded.
 
+The first pass can optionally include all scanned files in the spreadsheet,
+whether or not they've matched the pattern; this is useful for debugging
+patterns.
 
-A recipe / config for mapping directory and filenames to parameters for the
-session.
+The spreadsheet includes a "selected" column, which can be edited before the
+second pass to control which files in the list are uploaded.
 
-For example: this format:
+## Scanning
 
-SURNAME^GIVENNAME-UNIQUENUMBER   (eg. CITIZEN^JOHN-1001) 
-yyyymmdd-ScanName   (eg. 20140903-CT Chest,Abdo,Pelvis)
-yyyymmdd-ScanName   (eg. 20150601-HRCT Chest)
-yyyymmdd-ScanName   (eg. 20150601-CT Chest)
+    xnatuploader.py --source ./my_directory --list ./list.xlsx scan
 
-SURNAME^GIVENNAME-UNIQUENUMBER   (eg. CITIZEN^MARY-1002) 
-yyyymmdd-ScanName   (eg. 20001030-CT Chest)
-yyyymmdd-ScanName   (eg. 20001201-HRCT Chest)
-yyyymmdd-ScanName   (eg. 20010106-CT Chest, Pelvis)
+## Pattern matching
 
-A recipe for this might look like
+A recipe is a list of patterns which are used to match against directories
+and filenames and capture values from them. Matching works in two steps:
+a path is matched against a recipe to capture values, and then those values
+are mapped to the XNAT hierarchy Subject/Session/Dataset.
 
-[ "{surname}^{givenname}-{identifier}", "{yyyy}{mm}{dd}-{name}", "{file}" ]
+Here's an example of a recipe which looks for directories with the patient
+name and ID separated by a "-", containing DICOM files with a name consisting
+of the date in YYYYMMDD format, a "-" and a label or filename:
 
-The script will work in two passes.
+	[ "{SubjectName}-{SubjectId}", "{YYYY}{MM}{DD}-{Label}.dcm" ]
 
-### Scanning
+For a file with the following path:
 
-Traverses the filesystem and builds a list of files which matched the recipe.
-The list of files and extracted values is saved as an Excel file. Optionally,
-files which didn't match any of the patterns are also recorded in the
-spreadsheet
+    C:\User\xxyy\Scans\SMITH^JOHN-928302\20140903-CTChest.dcm
 
-The spreadsheet has a column which allows the user to select / deselect files
-to be uploaded.
+the above pattern would produce the following values:
 
-### Uploading
+    SubjectName = SMITH^JOHN
+    SubjectId   = 928302
+    YYYY        = 2014
+    MM          = 09
+    DD          = 03
+    Label       = CTChest
 
-Once the user has decided which files to upload, the script is run in upload
-mode, and uses the metadata stored in the spreadsheet to add the files to XNAT.
-It keeps track of which files have been successfully uploaded in the
-spreadsheet, so that if it's interrupted and restarted it can skip those which
-have already been uploaded.
+Patterns are matched against the filepath in reverse, starting with
+the filename, which is compared to the last pattern. If that matches, the
+directory is compared to the second-last pattern, and so on. This means that
+a single pattern can match files which are nested at different levels.
+
+These values would then be mapped to XNAT values with the following mapping:
+
+    [
+    	"Subject": "SubjectId",
+    	"Session": [ "YYYY", "MM", "DD" ],
+    	"Dataset": "Label"
+    ]
+
+to give the XNAT values:
+
+    Subject = 938302
+    Session = 20140903
+    Dataset = CTChest
+
+A recipe can be given multiple patterns, in case a single pattern isn't
+flexible enough to match all of the desired paths to be scanned.
+
+## Checking the spreadsheet
+
+By default, all files which match a pattern are marked as selected for upload
+in the spreadsheet. Before uploading, you can edit the spreadsheet to
+deselect files or groups of files which shouldn't be uploaded.
+
+If the scan is run with the "unmatched" flag, all files will be included in 
+the spreadsheet. Unmatched files will not be marked as selected for upload,
+and would not be uploaded if selected, as they won't have values to be used as
+XNAT categories. It's possible to add the XNAT hierarchy values manually to the
+spreadsheet: files with manual values can be selected and will be uploaded.
+
+## Uploading
+
+    xnatuploader.py --list ./list.xlsx --server http://xnat.server/ --project MyProject upload
+
+This reads back the values written out to the list.xlsx spreadsheet and
+uses them to upload the selected files to the selected project on XNAT.
+Authentication works the same way as xnatutils - the user is prompted for their
+username and password, and the encrypted values are cached in a .netrc file 
+
+The spreadsheet will be updated to indicate the status of each uploaded file.
+A copy of the original spreadsheet is written out at the start of the upload
+run.
+
+If the upload is interrupted, it can be restarted by running the same command:
+files marked as having been uploaded successfully will be skipped.
+
