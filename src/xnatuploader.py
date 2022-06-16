@@ -76,7 +76,7 @@ def upload(xnat_session, matcher, project, logfile):
     # fixme: need to write out the spreadsheet progressively as we do the
     # uploads if this is going to work with interrupted connections etc
     for file in files:
-        if file.selected == "Y":
+        if file.selected:
             if file.status == "success":
                 logging.info(f"{file.file} already uploaded")
             else:
@@ -93,9 +93,10 @@ def upload(xnat_session, matcher, project, logfile):
     wb = new_workbook(matcher)
     ws = wb.active
     for file in files:
-        logging.debug(f"rewriting row for {file.file}: {file.columns}")
-        logging.debug(f"xnat params = {file.xnat_params}")
-        logging.debug(f"values = {file.values}")
+        logging.warning(f"rewriting row for {file.file}: {file.columns}")
+        logging.warning(f"xnat params = {file.xnat_params}")
+        logging.warning(f"values = {file.values}")
+        logging.warning(f"status = {file.status}")
         ws.append(file.columns)
     wb.save(logfile)
 

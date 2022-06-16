@@ -143,11 +143,11 @@ class Matcher:
         try:
             match.success = True
             match.xnat_params = self.map_values(values)
-            match.selected = "Y"
+            match.selected = True
         except Exception as e:
             match.success = False
             match.error = str(e)
-            match.selected = "N"
+            match.selected = False
         return match
 
     def from_spreadsheet(self, row):
@@ -242,7 +242,11 @@ class FileMatch:
         if self._columns is not None:
             return self._columns
         if self.label is not None:
-            self._columns = [self.label, self.file, self.selected]
+            self._columns = [self.label, self.file]
+            if self.selected:
+                self._columns += ["Y"]
+            else:
+                self._columns += ["N"]
             if self.error is not None:
                 self._columns += [f"{self.status}: {self.error}"]
             else:
@@ -267,7 +271,7 @@ class FileMatch:
         """
         self.label = row[0]
         self.file = row[1]
-        self.selected = row[2]
+        self.selected = row[2] == "Y"
         self.status = row[3]
         self.xnat_params = {"Subject": row[4], "Session": row[5], "Dataset": row[6]}
         self.values = {}
@@ -275,3 +279,24 @@ class FileMatch:
         for p in self.matcher.params:
             self.values[p] = row[c]
             c += 1
+
+    @property
+    def subject(self):
+        if self.xnat_params is not None:
+            return self.xnat_params["Subject"]
+        else:
+            return None
+
+    @property
+    def session(self):
+        if self.xnat_params is not None:
+            return self.xnat_params["Session"]
+        else:
+            return None
+
+    @property
+    def dataset(self):
+        if self.xnat_params is not None:
+            return self.xnat_params["Dataset"]
+        else:
+            return None
