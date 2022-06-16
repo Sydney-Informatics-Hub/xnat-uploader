@@ -2,6 +2,7 @@ import pytest
 import xnatutils
 import shutil
 import json
+import logging
 
 from openpyxl import load_workbook
 
@@ -42,16 +43,19 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
         if row[0] != "Recipe":
             scanned_row = matcher.from_spreadsheet(row)
             if scanned_row.selected:
+                logging.warning(f"Checking for {scanned_row.file}")
                 assert scanned_row.file in uploads
                 assert uploads[scanned_row.file].status == "success"
                 from_ls = xnatutils.ls(
                     project_id=project.name,
                     subject_id=scanned_row.subject,
-                    datatype="session",
+                    session_id=scanned_row.session,
+                    datatype="dataset",
                     connection=xnat_session,
                 )
                 assert from_ls is not None
-                print(from_ls)
+                logging.warning(scanned_row.columns)
+                logging.warning(from_ls)
                 del uploads[scanned_row.file]
     assert len(uploads) == 0
 
