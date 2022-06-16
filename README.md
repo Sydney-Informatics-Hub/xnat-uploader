@@ -1,6 +1,6 @@
 # xnatuploader
 
-A command-line tool which builds on [xnatutis](https://github.com/Australian-Imaging-Service/xnatutils) to assist with uploading batches of DICOMs to XNAT.
+A command-line tool which builds on [xnatutils](https://github.com/Australian-Imaging-Service/xnatutils) to assist with uploading batches of DICOMs to XNAT.
 
 ## Usage
 
