@@ -8,7 +8,7 @@ from pathlib import Path
 import xnatutils
 from openpyxl import Workbook, load_workbook
 
-from matcher import Matcher
+from xnatuploader.matcher import Matcher
 
 FILE_COLUMN_WIDTH = 50
 

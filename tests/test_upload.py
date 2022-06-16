@@ -8,8 +8,8 @@ from openpyxl import load_workbook
 
 from pathlib import Path
 
-from xnatuploader import scan, upload
-from matcher import Matcher
+from xnatuploader.xnatuploader import scan, upload
+from xnatuploader.matcher import Matcher
 
 FIXTURES_DIR = Path("tests/fixtures")
 DICOM = FIXTURES_DIR / "sample_dicoms" / "image-00000.dcm"

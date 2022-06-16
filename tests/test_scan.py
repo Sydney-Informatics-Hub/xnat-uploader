@@ -2,8 +2,8 @@ from openpyxl import load_workbook
 from pathlib import Path
 import json
 
-from matcher import Matcher
-from xnatuploader import scan
+from xnatuploader.matcher import Matcher
+from xnatuploader.xnatuploader import scan
 
 from .utils import assert_spreadsheets_equal
 
