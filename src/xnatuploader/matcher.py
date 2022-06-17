@@ -12,7 +12,7 @@ class RecipeException(Exception):
 
 class Matcher:
     def __init__(self, config_json):
-        self.parse_recipes(config_json["recipes"])
+        self.parse_recipes(config_json["paths"])
         self.mappings = config_json["mappings"]
         self._headers = None
         for k, vs in self.mappings.items():
@@ -27,7 +27,7 @@ class Matcher:
     @property
     def headers(self):
         if self._headers is None:
-            self._headers = ["Recipe", "File", "Upload", "Status"]
+            self._headers = ["Pattern", "File", "Upload", "Status"]
             self._headers += XNAT_HIERARCHY + self.params
         return self._headers
 

@@ -6,27 +6,12 @@ import json
 import logging
 from pathlib import Path
 import xnatutils
-from openpyxl import Workbook, load_workbook
+from openpyxl import load_workbook
 
 from xnatuploader.matcher import Matcher
+from xnatuploader.workbook import new_workbook, load_config
 
 FILE_COLUMN_WIDTH = 50
-
-
-def new_workbook(matcher):
-    """
-    Make a new openpyxl workbook with headers from the matcher object
-    and niceties such as a wider column for the file names
-    ---
-    matcher: a Matcher
-    returns: a Workbook
-    """
-    wb = Workbook()
-    ws = wb.active
-    ws.column_dimensions["B"].width = FILE_COLUMN_WIDTH
-    ws.title = "Files"
-    ws.append(matcher.headers)
-    return wb
 
 
 def scan(matcher, root, logfile, include_unmatched=True):
@@ -152,9 +137,13 @@ def main():
         show_help()
         exit()
 
-    with open(args.config, "r") as fh:
-        config_json = json.load(fh)
-        matcher = Matcher(config_json)
+    if args.config.suffix == "json":
+        with open(args.config, "r") as fh:
+            config_json = json.load(fh)
+    else:
+        config_json = load_config(args.config)
+
+    matcher = Matcher(config_json)
 
     if args.operation == "scan":
         logging.info(f"Scanning {args.source}")

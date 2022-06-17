@@ -1,17 +1,17 @@
 {
-	"recipes": {
+	"Patterns": {
 		"Scans": [
 			"{SubjectName}-{SubjectId}",
 			"{YYYY}{MM}{DD}-{Label}.dcm"
 		]
 	},
-	"mappings": {
+	"Mappings": {
 		"Subject": [ "SubjectId" ],
 		"Session": [ "YYYY", "MM","DD" ],
 		"Dataset": [ "Label" ]
 	},
-	"xnat": {
-		"server": "https://localhost:8080",
-		"project": ""
+	"XNAT": {
+		"Server": "https://localhost:8080",
+		"Project": "Test01"
 	}
 }
