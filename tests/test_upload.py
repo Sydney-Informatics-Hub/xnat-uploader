@@ -1,8 +1,6 @@
-import pytest
 import xnatutils
 import shutil
 import json
-import logging
 
 from openpyxl import load_workbook
 
@@ -39,28 +37,38 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
             upload_row = matcher.from_spreadsheet(row)
             if upload_row.selected:
                 uploads[upload_row.file] = upload_row
+    expect = {}
     for row in scanned_ws.values:
         if row[0] != "Recipe":
-            scanned_row = matcher.from_spreadsheet(row)
-            if scanned_row.selected:
-                logging.warning(f"Checking for {scanned_row.file}")
-                assert scanned_row.file in uploads
-                assert uploads[scanned_row.file].status == "success"
-                from_ls = xnatutils.ls(
-                    project_id=project.name,
-                    subject_id=scanned_row.subject,
-                    session_id=scanned_row.session,
-                    datatype="dataset",
-                    connection=xnat_session,
-                )
-                assert from_ls is not None
-                logging.warning(scanned_row.columns)
-                logging.warning(from_ls)
-                del uploads[scanned_row.file]
+            m = matcher.from_spreadsheet(row)
+            if m.selected:
+                subject = m.subject
+                session = m.session
+                if subject not in expect:
+                    expect[subject] = {}
+                if session not in expect[subject]:
+                    expect[subject][session] = []
+                expect[subject][session].append(m)
+    for subject, sessions in expect.items():
+        for session, rows in sessions.items():
+            for row in rows:
+                assert row.file in uploads
+                assert uploads[row.file].status == "success"
+            scans = xnatutils.ls(
+                session,
+                project_id=project.name,
+                subject_id=subject,
+                datatype="scan",
+                connection=xnat_session,
+            )
+            assert scans is not None
+            assert len(scans) == len(rows)
+            for row in rows:
+                assert row.dataset in scans
+                del uploads[row.file]
     assert len(uploads) == 0
 
 
-@pytest.mark.skip(reason="incomplete")
 def test_upload_one(xnat_project, tmp_path):
     xnat_session, project = xnat_project
     subject = xnat_session.classes.SubjectData(parent=project, label=SUBJECT_ID)
@@ -75,19 +83,19 @@ def test_upload_one(xnat_project, tmp_path):
         connection=xnat_session,
     )
     sessions = xnatutils.ls(
-        project_id="Test001", datatype="session", connection=xnat_session
+        SESSION_ID, project_id="Test001", datatype="session", connection=xnat_session
     )
     assert sessions is not None
     assert len(sessions) == 1
     session = sessions[0]
     assert session == SESSION_ID
-    scans = xnatutils.ls(xnat_id=session, datatype="scan", connection=xnat_session)
-    assert scans is not None
-    assert len(scans) == 1
-    xnatutils.get(
-        SESSION_ID,
-        tmp_path,
-        project_id=project.name,
+    scans = xnatutils.ls(
+        session,
+        project_id="Test001",
         subject_id=SUBJECT_ID,
+        datatype="scan",
         connection=xnat_session,
     )
+    assert scans is not None
+    assert len(scans) == 1
+    assert scans[0] == DATASET_ID
