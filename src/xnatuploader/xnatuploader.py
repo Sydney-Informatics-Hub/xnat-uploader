@@ -36,7 +36,7 @@ def scan(matcher, root, logfile, include_unmatched=True):
     wb.save(logfile)
 
 
-def upload(xnat_session, matcher, project, logfile):
+def upload(xnat_session, matcher, project, logfile, overwrite=False):
     """
     Load an Excel logfile created with scan and upload the files which the user
     has marked for upload, and which haven't been uploaded yet. Keeps track of
@@ -67,7 +67,7 @@ def upload(xnat_session, matcher, project, logfile):
             else:
                 try:
                     logging.info(f"Uploading: {file.file}")
-                    upload_file(xnat_session, project, file)
+                    upload_file(xnat_session, project, file, overwrite)
                     file.status = "success"
                 except Exception as e:
                     logging.warning(f"Upload {file.file} failed: {e}")
@@ -78,15 +78,11 @@ def upload(xnat_session, matcher, project, logfile):
     wb = new_workbook(matcher)
     ws = wb.active
     for file in files:
-        logging.warning(f"rewriting row for {file.file}: {file.columns}")
-        logging.warning(f"xnat params = {file.xnat_params}")
-        logging.warning(f"values = {file.values}")
-        logging.warning(f"status = {file.status}")
         ws.append(file.columns)
     wb.save(logfile)
 
 
-def upload_file(xnat_session, project, matchfile):
+def upload_file(xnat_session, project, matchfile, overwrite=False):
     xnatutils.put(
         matchfile.xnat_params["Session"],
         matchfile.xnat_params["Dataset"],
@@ -96,6 +92,7 @@ def upload_file(xnat_session, project, matchfile):
         subject_id=matchfile.xnat_params["Subject"],
         create_session=True,
         connection=xnat_session,
+        overwrite=overwrite,
     )
 
 
@@ -122,6 +119,12 @@ def main():
         action="store_true",
         default=False,
         help="Whether to include unmatched files in list",
+    )
+    ap.add_argument(
+        "--overwrite",
+        action="store_true",
+        default=False,
+        help="Whether to overwrite files which have already been uploaded",
     )
     ap.add_argument(
         "operation",
@@ -156,7 +159,7 @@ def main():
             logging.error("Can't upload without a project ID")
             exit()
         xnat_session = xnatutils.base.connect(args.server)
-        upload(xnat_session, matcher, args.project, args.list)
+        upload(xnat_session, matcher, args.project, args.list, args.overwrite)
 
 
 if __name__ == "__main__":

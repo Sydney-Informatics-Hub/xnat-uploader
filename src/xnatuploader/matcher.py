@@ -273,7 +273,11 @@ class FileMatch:
         self.file = row[1]
         self.selected = row[2] == "Y"
         self.status = row[3]
-        self.xnat_params = {"Subject": row[4], "Session": row[5], "Dataset": row[6]}
+        self.xnat_params = {
+            "Subject": row[4],
+            "Session": row[5],
+            "Dataset": row[6],
+        }
         self.values = {}
         c = 7
         for p in self.matcher.params:

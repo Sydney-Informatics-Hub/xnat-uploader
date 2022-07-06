@@ -26,7 +26,7 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
     log_uploaded = tmp_path / "log_uploaded.xlsx"
     scan(matcher, Path(test_files["source"]), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
-    upload(xnat_session, matcher, project.name, log_uploaded)
+    upload(xnat_session, matcher, project.name, log_uploaded, overwrite=True)
     scanned_wb = load_workbook(log_scanned)
     scanned_ws = scanned_wb.active
     uploaded_wb = load_workbook(log_uploaded)
@@ -99,3 +99,43 @@ def test_upload_one(xnat_project, tmp_path):
     assert scans is not None
     assert len(scans) == 1
     assert scans[0] == DATASET_ID
+
+
+def test_missing_file(xnat_project, tmp_path, test_files):
+    xnat_session, project = xnat_project
+    with open(test_files["config"], "r") as fh:
+        config_json = json.load(fh)
+        matcher = Matcher(config_json)
+    log_scanned = tmp_path / "log_scanned.xlsx"
+    log_uploaded = tmp_path / "log_uploaded.xlsx"
+    scan(matcher, Path(test_files["source"]), log_scanned)
+    scanned_wb = load_workbook(log_scanned)
+    ws = scanned_wb.active
+    # change the third filename to trigger an error
+    c = 0
+    i = 0
+    bad_file = None
+    for row in ws.values:
+        i += 1
+        if row[0] != "Recipe":
+            m = matcher.from_spreadsheet(row)
+            if m.selected:
+                c += 1
+                if c == 3:
+                    bad_file = ws.cell(i, 2).value + "broken"
+                    ws.cell(i, 2).value = bad_file
+
+    scanned_wb.save(log_uploaded)
+    upload(xnat_session, matcher, project.name, log_uploaded, overwrite=True)
+    uploads = {}
+    uploaded_wb = load_workbook(log_uploaded)
+    uploaded_ws = uploaded_wb.active
+    for row in uploaded_ws.values:
+        if row[0] != "Recipe":
+            upload_row = matcher.from_spreadsheet(row)
+            if upload_row.selected:
+                uploads[upload_row.file] = upload_row
+                if upload_row.file == bad_file:
+                    assert upload_row.status != "success"
+                else:
+                    assert upload_row.status == "success"
