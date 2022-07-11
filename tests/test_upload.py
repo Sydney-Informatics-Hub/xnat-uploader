@@ -8,6 +8,8 @@ from pathlib import Path
 
 from xnatuploader.xnatuploader import scan, upload
 from xnatuploader.matcher import Matcher
+from xnatuploader.workbook import new_workbook
+
 
 FIXTURES_DIR = Path("tests/fixtures")
 DICOM = FIXTURES_DIR / "sample_dicoms" / "image-00000.dcm"
@@ -24,13 +26,14 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
         matcher = Matcher(config_json)
     log_scanned = tmp_path / "log_scanned.xlsx"
     log_uploaded = tmp_path / "log_uploaded.xlsx"
+    new_workbook(log_scanned)
     scan(matcher, Path(test_files["source"]), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
     upload(xnat_session, matcher, project.name, log_uploaded, overwrite=True)
     scanned_wb = load_workbook(log_scanned)
-    scanned_ws = scanned_wb.active
+    scanned_ws = scanned_wb["Files"]
     uploaded_wb = load_workbook(log_uploaded)
-    uploaded_ws = uploaded_wb.active
+    uploaded_ws = uploaded_wb["Files"]
     uploads = {}
     for row in uploaded_ws.values:
         if row[0] != "Recipe":
@@ -108,9 +111,10 @@ def test_missing_file(xnat_project, tmp_path, test_files):
         matcher = Matcher(config_json)
     log_scanned = tmp_path / "log_scanned.xlsx"
     log_uploaded = tmp_path / "log_uploaded.xlsx"
+    new_workbook(log_scanned)
     scan(matcher, Path(test_files["source"]), log_scanned)
     scanned_wb = load_workbook(log_scanned)
-    ws = scanned_wb.active
+    ws = scanned_wb["Files"]
     # change the third filename to trigger an error
     c = 0
     i = 0
@@ -129,7 +133,7 @@ def test_missing_file(xnat_project, tmp_path, test_files):
     upload(xnat_session, matcher, project.name, log_uploaded, overwrite=True)
     uploads = {}
     uploaded_wb = load_workbook(log_uploaded)
-    uploaded_ws = uploaded_wb.active
+    uploaded_ws = uploaded_wb["Files"]
     for row in uploaded_ws.values:
         if row[0] != "Recipe":
             upload_row = matcher.from_spreadsheet(row)

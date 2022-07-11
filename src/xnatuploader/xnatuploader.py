@@ -1,54 +1,71 @@
 #!/usr/bin/env python
 
-
 import argparse
-import json
 import logging
 from pathlib import Path
 import xnatutils
 from openpyxl import load_workbook
+from pydicom import dcmread
 
-from xnatuploader.matcher import Matcher
-from xnatuploader.workbook import new_workbook, load_config
+from xnatuploader.matcher import Matcher, DICOM_PARAMS
+from xnatuploader.workbook import new_workbook, add_filesheet, load_config
 
 FILE_COLUMN_WIDTH = 50
 
+logger = logging.getLogger(__name__)
 
-def scan(matcher, root, logfile, include_unmatched=True):
+
+def read_dicom(file):
+    """
+    Read the values for each parameter in DICOM_PARAMS from a DICOM file
+    ---
+    file: pathlib.Path
+
+    returns: dict of str by str
+    """
+    dc = dcmread(file)
+    return {p: dc.get(p) for p in DICOM_PARAMS}
+
+
+def scan(matcher, root, spreadsheet, include_unmatched=True):
     """
     Scan the filesystem under root for files which match recipes and write
-    out the resulting values to a spreadsheet.
+    out the resulting values to a new worksheet in the spreadsheet.
     ---
     matcher: a PathMatcher
     root: pathlib.Path
-    logfile: pathlib.Path
+    spreadsheet: pathlib.Path
     include_unmatched: bool
     """
-    wb = new_workbook(matcher)
-    ws = wb.active
+    wb = load_workbook(spreadsheet)
+    ws = add_filesheet(wb, matcher)
     for file in root.glob("**/*"):
         filematch = matcher.match(file)
-        logging.debug(f"File {filematch.file} match {filematch.values}")
-        if filematch.values is not None or include_unmatched:
-            if filematch.values is not None:
-                logging.info(f"Matched {filematch.file}")
+        logger.debug(f"File {filematch.file} match {filematch.values}")
+        if filematch.values is not None:
+            logger.info(f"Matched {filematch.file}")
+            if file.suffix == "dcm":
+                filematch.dicom_params = read_dicom(file)
             ws.append(filematch.columns)
-    wb.save(logfile)
+        else:
+            if include_unmatched:
+                ws.append(filematch.columns)
+    wb.save(spreadsheet)
 
 
-def upload(xnat_session, matcher, project, logfile, overwrite=False):
+def upload(xnat_session, matcher, project, spreadsheet, overwrite=False):
     """
-    Load an Excel logfile created with scan and upload the files which the user
+    Load an Excel spreadsheet created with scan and upload the files which the user
     has marked for upload, and which haven't been uploaded yet. Keeps track of
     successful uploads in the "success" column.
     ---
     xnat_session: an XnatPy session, as returned by xnatutils.base.connect
     matcher: a Matcher
     project: the XNAT project id to which we're uploading
-    logfile: pathlib.Path to the Excel spreadsheet listing files
+    spreadsheet: pathlib.Path to the Excel spreadsheet listing files
     """
-    wb = load_workbook(logfile)
-    ws = wb.active
+    wb = load_workbook(spreadsheet)
+    ws = wb["Files"]
     header = True
     files = []
     for row in ws.values:
@@ -63,23 +80,22 @@ def upload(xnat_session, matcher, project, logfile, overwrite=False):
     for file in files:
         if file.selected:
             if file.status == "success":
-                logging.info(f"{file.file} already uploaded")
+                logger.info(f"{file.file} already uploaded")
             else:
                 try:
-                    logging.info(f"Uploading: {file.file}")
+                    logger.info(f"Uploading: {file.file}")
                     upload_file(xnat_session, project, file, overwrite)
                     file.status = "success"
                 except Exception as e:
-                    logging.warning(f"Upload {file.file} failed: {e}")
+                    logger.warning(f"Upload {file.file} failed: {e}")
                     file.error = str(e)
                     file.status = "failed"
         else:
-            logging.debug(f"{file.file} not selected")
-    wb = new_workbook(matcher)
-    ws = wb.active
+            logger.debug(f"{file.file} not selected")
+    ws = add_filesheet(wb, matcher)
     for file in files:
         ws.append(file.columns)
-    wb.save(logfile)
+    wb.save(spreadsheet)
 
 
 def upload_file(xnat_session, project, matchfile, overwrite=False):
@@ -103,13 +119,10 @@ def show_help():
 def main():
     ap = argparse.ArgumentParser("XNAT batch uploader")
     ap.add_argument(
-        "--config", default="config.json", type=Path, help="JSON config file"
+        "--dir", default="./", type=Path, help="Base directory to scan for files"
     )
     ap.add_argument(
-        "--source", default="./", type=Path, help="Base directory to scan for files"
-    )
-    ap.add_argument(
-        "--list", default="list.xlsx", type=Path, help="File list spreadsheet"
+        "--spreadsheet", default="files.xlsx", type=Path, help="File list spreadsheet"
     )
     ap.add_argument("--server", type=str, help="URL of XNAT server")
     ap.add_argument("--project", type=str, help="XNAT project ID")
@@ -129,7 +142,7 @@ def main():
     ap.add_argument(
         "operation",
         default="scan",
-        choices=["scan", "upload", "help"],
+        choices=["init", "scan", "upload", "help"],
         help="Operation",
     )
     args = ap.parse_args()
@@ -140,26 +153,27 @@ def main():
         show_help()
         exit()
 
-    if args.config.suffix == "json":
-        with open(args.config, "r") as fh:
-            config_json = json.load(fh)
-    else:
-        config_json = load_config(args.config)
+    if args.operation == "init":
+        new_workbook(args.spreadsheet)
+        logger.info(f"Initialised spreadsheet at {args.spreadsheet}")
+        exit()
 
-    matcher = Matcher(config_json)
+    config = load_config(args.spreadsheet)
+
+    matcher = Matcher(config)
 
     if args.operation == "scan":
-        logging.info(f"Scanning {args.source}")
-        scan(matcher, args.source, args.list, include_unmatched=args.unmatched)
+        logger.info(f"Scanning directory {args.dir}")
+        scan(matcher, args.dir, args.spreadsheet, include_unmatched=args.unmatched)
     else:
         if not args.server:
-            logging.error("Can't upload without a server")
+            logger.error("Can't upload without a server")
             exit()
         if not args.project:
-            logging.error("Can't upload without a project ID")
+            logger.error("Can't upload without a project ID")
             exit()
         xnat_session = xnatutils.base.connect(args.server)
-        upload(xnat_session, matcher, args.project, args.list, args.overwrite)
+        upload(xnat_session, matcher, args.project, args.spreadsheet, args.overwrite)
 
 
 if __name__ == "__main__":

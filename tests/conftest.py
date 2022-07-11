@@ -10,7 +10,7 @@ def test_files():
         "config_excel": fixtures_dir / "template.xlsx",
         "config": fixtures_dir / "recipe-xnat.json",
         "source": fixtures_dir / "source",
-        "log": fixtures_dir / "log.xlsx",
+        "log": fixtures_dir / "scanned.xlsx",
     }
 
 

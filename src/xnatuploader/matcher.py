@@ -2,6 +2,7 @@ import re
 import logging
 
 XNAT_HIERARCHY = ["Subject", "Session", "Dataset"]
+DICOM_PARAMS = ["Modality", "StudyDescription", "StudyDate"]
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class Matcher:
     def headers(self):
         if self._headers is None:
             self._headers = ["Pattern", "File", "Upload", "Status"]
-            self._headers += XNAT_HIERARCHY + self.params
+            self._headers += XNAT_HIERARCHY + DICOM_PARAMS + self.params
         return self._headers
 
     def parse_recipes(self, recipe_config):
@@ -226,6 +227,7 @@ class FileMatch:
         self.file = str(file)
         self.values = None
         self.xnat_params = None
+        self.dicom_params = None
         self.error = None
         self.status = None
         self.selected = None
@@ -258,6 +260,10 @@ class FileMatch:
                 self._columns += ["", "", ""]
             else:
                 self._columns += [self.xnat_params[p] for p in XNAT_HIERARCHY]
+            if self.dicom_params is None:
+                self._columns += ["", "", ""]
+            else:
+                self._columns += [self.dicom_params[p] for p in DICOM_PARAMS]
             if self.values is not None:
                 self._columns += [self.values[p] for p in self.matcher.params]
         else:
@@ -278,8 +284,13 @@ class FileMatch:
             "Session": row[5],
             "Dataset": row[6],
         }
+        self.dicom_params = {
+            "Modality": row[7],
+            "StudyDescription": row[8],
+            "StudyDate": row[9],
+        }
         self.values = {}
-        c = 7
+        c = 10
         for p in self.matcher.params:
             self.values[p] = row[c]
             c += 1
