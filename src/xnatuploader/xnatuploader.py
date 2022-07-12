@@ -43,8 +43,8 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
         filematch = matcher.match(file)
         logger.debug(f"File {filematch.file} match {filematch.values}")
         if filematch.values is not None:
-            logger.info(f"Matched {filematch.file}")
-            if file.suffix == "dcm":
+            logger.debug(f"Matched {filematch.file}")
+            if file.suffix == ".dcm":
                 filematch.dicom_params = read_dicom(file)
             ws.append(filematch.columns)
         else:
