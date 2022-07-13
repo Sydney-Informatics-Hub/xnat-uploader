@@ -142,7 +142,38 @@ def collate_uploads(project_id, files):
 
 
 def show_help():
-    pass
+    print(
+        """
+xnatuploader is a utility for collating and uploading images to XNAT, using
+a spreadsheet to keep track of which files are uploaded.
+
+Sample usage:
+
+    xnatuploader --spreadsheet sheet.xlsx init
+
+Writes out a spreadsheet in the format required by xnatuploader, with a sample
+configuration page.
+
+    xnatuploader --spreadsheet sheet.xlsx --dir ./source/ scan
+
+Scans the directory provided with the --dir flag and builds a file list in
+the spreadsheet
+
+    xnatuploader --spreadsheet sheet.xlsx --dir ./source \
+        --project MyProjectID                            \
+        --server https://xnat.domain.name/               \
+        upload
+
+Uploads the files recorded in the spreadsheet.
+
+For more detailed instructions on how to configure xnatuploader to capture
+parameters from filepaths, refer to the "Configuration" worksheet in the
+spreadsheet, or visit the online documentation at:
+
+https://github.com/Sydney-Informatics-Hub/xnat-uploader/
+
+"""
+    )
 
 
 def main():
