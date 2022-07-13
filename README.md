@@ -4,30 +4,31 @@ A command-line tool which builds on [xnatutils](https://github.com/Australian-Im
 
 ## Usage
 
-xnatuploader runs in two passes. The first pass scans a filesystem and looks
-for filepaths which match certain patterns, uses the pattern matches to
-deduce the subject, session and dataset values for XNAT, and writes out a
-spreadsheet listing all of the files, the pattern matches and the extracted
-XNAT values.
+xnatuploader runs in three passes. The first pass writes out a spreadsheet with
+a sample configuration page, which should be edited to match the file paths
+you're going to scan.
 
-The second pass reads in the spreadsheet and uses the extracted values to
+The second pass scans a filesystem and looks for filepaths which match the
+configured patterns, uses the pattern matches to deduce the subject, session
+and dataset values for XNAT, and writes out a spreadsheet listing all of the
+files, the pattern matches and the extracted XNAT values.
+
+The third pass reads in the spreadsheet and uses the extracted values to
 upload each file to XNAT. The spreadsheet is used to keep track of which
 files have been successfully uploaded, so that if the upload is interrupted
 or doesn't succeed for some files, it can be re-run without trying to upload
 those files which have already succeeded.
 
-The first pass can optionally include all scanned files in the spreadsheet,
-whether or not they've matched the pattern; this is useful for debugging
-patterns.
+## Initialisation
 
-The spreadsheet includes a "selected" column, which can be edited before the
-second pass to control which files in the list are uploaded.
+    xnatuploader --spreadsheet list.xlsx init
+
 
 ## Scanning
 
-    xnatuploader.py --source ./my_directory --list ./list.xlsx scan
+    xnatuploader --spreadsheet list.xlsx --dir images/ scan
 
-## Pattern matching
+### Pattern matching
 
 A recipe is a list of patterns which are used to match against directories
 and filenames and capture values from them. Matching works in two steps:
@@ -75,7 +76,7 @@ to give the XNAT values:
 A recipe can be given multiple patterns, in case a single pattern isn't
 flexible enough to match all of the desired paths to be scanned.
 
-## Checking the spreadsheet
+### Checking the spreadsheet
 
 By default, all files which match a pattern are marked as selected for upload
 in the spreadsheet. Before uploading, you can edit the spreadsheet to
@@ -89,7 +90,7 @@ spreadsheet: files with manual values can be selected and will be uploaded.
 
 ## Uploading
 
-    xnatuploader.py --list ./list.xlsx --server http://xnat.server/ --project MyProject upload
+    xnatuploader --spreadsheet list.xlsx --server http://xnat.server/ --project MyProject upload
 
 This reads back the values written out to the list.xlsx spreadsheet and
 uses them to upload the selected files to the selected project on XNAT.
@@ -97,8 +98,6 @@ Authentication works the same way as xnatutils - the user is prompted for their
 username and password, and the encrypted values are cached in a .netrc file 
 
 The spreadsheet will be updated to indicate the status of each uploaded file.
-A copy of the original spreadsheet is written out at the start of the upload
-run.
 
 If the upload is interrupted, it can be restarted by running the same command:
 files marked as having been uploaded successfully will be skipped.
