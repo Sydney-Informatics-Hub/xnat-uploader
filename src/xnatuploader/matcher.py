@@ -12,9 +12,20 @@ class RecipeException(Exception):
 
 
 class Matcher:
-    def __init__(self, config_json):
-        self.parse_recipes(config_json["paths"])
-        self.mappings = config_json["mappings"]
+    """
+    A Matcher is a set of recipes for matching against filepaths and mappings
+    which map the captured value to XNAT parameters. It's used to perform
+    the matching, returning FileMatch objects, and also has methods which are
+    used to get headers for the spreadsheets (since these will vary according
+    to the parameters captured in the recipes)
+    """
+
+    def __init__(self, config):
+        """
+        config: dict with "paths" and "mappings"
+        """
+        self.parse_recipes(config["paths"])
+        self.mappings = config["mappings"]
         self._headers = None
         for k, vs in self.mappings.items():
             for v in vs:
@@ -28,7 +39,7 @@ class Matcher:
     @property
     def headers(self):
         if self._headers is None:
-            self._headers = ["Pattern", "File", "Upload", "Status"]
+            self._headers = ["Pattern", "File", "Upload", "Status", "SessionLabel"]
             self._headers += XNAT_HIERARCHY + DICOM_PARAMS + self.params
         return self._headers
 
@@ -228,6 +239,7 @@ class FileMatch:
         self.values = None
         self.xnat_params = None
         self.dicom_params = None
+        self.session_label = None
         self.error = None
         self.status = None
         self.selected = None
@@ -256,6 +268,10 @@ class FileMatch:
                     self._columns += [""]
                 else:
                     self._columns += [self.status]
+            if self.session_label is None:
+                self._columns += [""]
+            else:
+                self._columns += [self.session_label]
             if self.xnat_params is None:
                 self._columns += ["", "", ""]
             else:
@@ -279,18 +295,19 @@ class FileMatch:
         self.file = row[1]
         self.selected = row[2] == "Y"
         self.status = row[3]
+        self.session_label = row[4]
         self.xnat_params = {
-            "Subject": row[4],
-            "Session": row[5],
-            "Dataset": row[6],
+            "Subject": row[5],
+            "Session": row[6],
+            "Dataset": row[7],
         }
         self.dicom_params = {
-            "Modality": row[7],
-            "StudyDescription": row[8],
-            "StudyDate": row[9],
+            "Modality": row[8],
+            "StudyDescription": row[9],
+            "StudyDate": row[10],
         }
         self.values = {}
-        c = 10
+        c = 11
         for p in self.matcher.params:
             self.values[p] = row[c]
             c += 1
@@ -315,3 +332,18 @@ class FileMatch:
             return self.xnat_params["Dataset"]
         else:
             return None
+
+    @property
+    def study_date(self):
+        if self.session is not None:
+            return self.session
+        if self.dicom_params is not None:
+            return self.dicom_params["StudyDate"]
+        return ""
+
+    @property
+    def modality(self):
+        if self.dicom_params is not None:
+            return self.dicom_params["Modality"]
+        else:
+            return "OT"  # DICOM code for "Other"

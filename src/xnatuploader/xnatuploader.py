@@ -9,6 +9,7 @@ from pydicom import dcmread
 
 from xnatuploader.matcher import Matcher, DICOM_PARAMS
 from xnatuploader.workbook import new_workbook, add_filesheet, load_config
+from xnatuploader.upload import Upload
 
 FILE_COLUMN_WIDTH = 50
 
@@ -53,16 +54,17 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
     wb.save(spreadsheet)
 
 
-def upload(xnat_session, matcher, project, spreadsheet, overwrite=False):
+def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=False):
     """
     Load an Excel spreadsheet created with scan and upload the files which the user
     has marked for upload, and which haven't been uploaded yet. Keeps track of
-    successful uploads in the "success" column.
+    successful uploads in the "status" column.
     ---
     xnat_session: an XnatPy session, as returned by xnatutils.base.connect
     matcher: a Matcher
     project: the XNAT project id to which we're uploading
     spreadsheet: pathlib.Path to the Excel spreadsheet listing files
+    overwrite: Boolean, used to set the overwrite flag on xnatutils for testing
     """
     wb = load_workbook(spreadsheet)
     ws = wb["Files"]
@@ -75,41 +77,68 @@ def upload(xnat_session, matcher, project, spreadsheet, overwrite=False):
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
 
-    # fixme: need to write out the spreadsheet progressively as we do the
-    # uploads if this is going to work with interrupted connections etc
+    uploads = collate_uploads(project, files)
+    ws = add_filesheet(wb, matcher)
+    for session_label, upload in uploads.items():
+        error = None
+        logger.info(f"Uploading to {session_label}")
+        if test:
+            upload.log(logger)
+        else:
+            try:
+                upload.upload(xnat_session, project, overwrite)
+            except Exception as e:
+                logger.warning(f"Upload to  {session_label} failed: {e}")
+                error = str(e)
+            for file in upload.files:
+                if error:
+                    file.status = error
+                else:
+                    file.status = "success"
+                ws.append(file.columns)
+            wb.save(spreadsheet)
+
+
+def collate_uploads(project_id, files):
+    """
+    Takes a list of files and collates them by subject (patient) and visit
+    index (starting from the earliest). Returns a dict of Upload objects
+    keyed by session labels.
+    ---
+    project_id: str
+    files: list of FileMatch
+
+    returns: dict of str: Upload
+    """
+
+    subjects = {}
     for file in files:
         if file.selected:
             if file.status == "success":
                 logger.info(f"{file.file} already uploaded")
             else:
-                try:
-                    logger.info(f"Uploading: {file.file}")
-                    upload_file(xnat_session, project, file, overwrite)
-                    file.status = "success"
-                except Exception as e:
-                    logger.warning(f"Upload {file.file} failed: {e}")
-                    file.error = str(e)
-                    file.status = "failed"
-        else:
-            logger.debug(f"{file.file} not selected")
-    ws = add_filesheet(wb, matcher)
-    for file in files:
-        ws.append(file.columns)
-    wb.save(spreadsheet)
+                if file.subject not in subjects:
+                    subjects[file.subject] = []
+                subjects[file.subject].append(file)
 
-
-def upload_file(xnat_session, project, matchfile, overwrite=False):
-    xnatutils.put(
-        matchfile.xnat_params["Session"],
-        matchfile.xnat_params["Dataset"],
-        matchfile.file,
-        resource_name="DICOM",
-        project_id=project,
-        subject_id=matchfile.xnat_params["Subject"],
-        create_session=True,
-        connection=xnat_session,
-        overwrite=overwrite,
-    )
+    uploads = {}
+    for subject_id, files in subjects.items():
+        dates = sorted(set([file.study_date for file in files]))
+        visits = {dates[i]: i + 1 for i in range(len(dates))}
+        for file in files:
+            visit = visits[file.study_date]
+            modality = file.modality
+            session_label = f"{project_id}_{subject_id}_{modality}{visit}"
+            file.session_label = session_label
+            if session_label not in uploads:
+                uploads[session_label] = Upload(
+                    session_label,
+                    subject_id,
+                    modality,
+                    file.dataset,
+                )
+            uploads[session_label].add_file(file)
+    return uploads
 
 
 def show_help():
@@ -127,6 +156,12 @@ def main():
     ap.add_argument("--server", type=str, help="URL of XNAT server")
     ap.add_argument("--project", type=str, help="XNAT project ID")
     ap.add_argument("--loglevel", type=str, default="info", help="Logging level")
+    ap.add_argument(
+        "--test",
+        action="store_true",
+        default=False,
+        help="Test mode: don't upload, just log what will be uploaded",
+    )
     ap.add_argument(
         "--unmatched",
         action="store_true",
@@ -173,7 +208,14 @@ def main():
             logger.error("Can't upload without a project ID")
             exit()
         xnat_session = xnatutils.base.connect(args.server)
-        upload(xnat_session, matcher, args.project, args.spreadsheet, args.overwrite)
+        upload(
+            xnat_session,
+            matcher,
+            args.project,
+            args.spreadsheet,
+            args.test,
+            args.overwrite,
+        )
 
 
 if __name__ == "__main__":
