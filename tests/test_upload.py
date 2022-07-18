@@ -13,10 +13,6 @@ from xnatuploader.workbook import new_workbook
 
 FIXTURES_DIR = Path("tests/fixtures")
 DICOM = FIXTURES_DIR / "sample_dicoms" / "image-00000.dcm"
-SESSION_ID = "SESSION01"
-DATASET_ID = "DATASET01"
-SUBJECT_ID = "1234-5678"
-# XNAT : Project / Subject / Session
 
 
 def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
@@ -26,12 +22,13 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
         matcher = Matcher(config_json)
     log_scanned = tmp_path / "log_scanned.xlsx"
     log_uploaded = tmp_path / "log_uploaded.xlsx"
+    downloads = tmp_path / "downloads"
     new_workbook(log_scanned)
     scan(matcher, Path(test_files["source"]), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
     upload(xnat_session, matcher, project.name, log_uploaded, overwrite=True)
-    scanned_wb = load_workbook(log_scanned)
-    scanned_ws = scanned_wb["Files"]
+    # scanned_wb = load_workbook(log_scanned)
+    # scanned_ws = scanned_wb["Files"]
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
     uploads = {}
@@ -41,67 +38,49 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
             if upload_row.selected:
                 uploads[upload_row.file] = upload_row
     expect = {}
-    for row in scanned_ws.values:
+    # Originally was using scanned_ws for this, but that doesn't have
+    # session labels. A more honest test would recreate them or get them
+    # from the upload spreadsheet.
+    for row in uploaded_ws.values:
         if row[0] != "Recipe":
             m = matcher.from_spreadsheet(row)
             if m.selected:
                 subject = m.subject
-                session = m.session
+                session_label = m.session_label
+                assert session_label is not None
                 if subject not in expect:
                     expect[subject] = {}
-                if session not in expect[subject]:
-                    expect[subject][session] = []
-                expect[subject][session].append(m)
+                if session_label not in expect[subject]:
+                    expect[subject][session_label] = []
+                expect[subject][session_label].append(m)
     for subject, sessions in expect.items():
-        for session, rows in sessions.items():
+        for session_label, rows in sessions.items():
             for row in rows:
                 assert row.file in uploads
                 assert uploads[row.file].status == "success"
-            scans = xnatutils.ls(
-                session,
+            xnatutils.get(
+                session_label,
+                downloads,
                 project_id=project.name,
-                subject_id=subject,
-                datatype="scan",
                 connection=xnat_session,
             )
-            assert scans is not None
-            assert len(scans) == len(rows)
-            for row in rows:
-                assert row.dataset in scans
-                del uploads[row.file]
+            if session_label is not None:
+                downloaded = get_downloaded(downloads / session_label)
+                assert len(downloaded) == len(rows)
+                for row in rows:
+                    assert Path(row.file).name in downloaded
+                    del uploads[row.file]
     assert len(uploads) == 0
 
 
-def test_upload_one(xnat_project, tmp_path):
-    xnat_session, project = xnat_project
-    subject = xnat_session.classes.SubjectData(parent=project, label=SUBJECT_ID)
-    assert subject is not None
-    xnatutils.put(
-        SESSION_ID,
-        DATASET_ID,
-        [str(DICOM)],
-        project_id=project.name,
-        subject_id=SUBJECT_ID,
-        create_session=True,
-        connection=xnat_session,
-    )
-    sessions = xnatutils.ls(
-        SESSION_ID, project_id="Test001", datatype="session", connection=xnat_session
-    )
-    assert sessions is not None
-    assert len(sessions) == 1
-    session = sessions[0]
-    assert session == SESSION_ID
-    scans = xnatutils.ls(
-        session,
-        project_id="Test001",
-        subject_id=SUBJECT_ID,
-        datatype="scan",
-        connection=xnat_session,
-    )
-    assert scans is not None
-    assert len(scans) == 1
-    assert scans[0] == DATASET_ID
+def get_downloaded(session_download):
+    files = []
+    for child in session_download.iterdir():
+        if child.is_dir():
+            for file in child.iterdir():
+                if file.is_file() and file.suffix == ".dcm":
+                    files.append(file.name)
+    return files
 
 
 def test_missing_file(xnat_project, tmp_path, test_files):

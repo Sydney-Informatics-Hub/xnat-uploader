@@ -159,12 +159,10 @@ configuration page.
 Scans the directory provided with the --dir flag and builds a file list in
 the spreadsheet
 
-    xnatuploader --spreadsheet sheet.xlsx --dir ./source \
-        --project MyProjectID                            \
-        --server https://xnat.domain.name/               \
-        upload
+    xnatuploader --spreadsheet sheet.xlsx --dir ./source upload
 
-Uploads the files recorded in the spreadsheet.
+Uploads the files recorded in the spreadsheet, to the server and project
+specified in the config worksheet.
 
 For more detailed instructions on how to configure xnatuploader to capture
 parameters from filepaths, refer to the "Configuration" worksheet in the
@@ -176,6 +174,29 @@ https://github.com/Sydney-Informatics-Hub/xnat-uploader/
     )
 
 
+def opt_or_config(args, config, param):
+    """
+    Gets a config value from either a command line parameter or the config
+    spreadsheet (in that order). Raises a ValueException if no value is
+    available.
+    ---
+    args: Namespace as returned by argparse
+    config: the config dict
+    value: the key in the config dict
+    """
+    value = None
+    logger.warning(f"{config}")
+    params = vars(args)
+    if param.lower() in params:
+        value = params[param.lower()]
+    else:
+        if param in config:
+            value = config[param]
+    if value is None:
+        raise ValueError(f"{param} must be specified in config or via command line")
+    return value
+
+
 def main():
     ap = argparse.ArgumentParser("XNAT batch uploader")
     ap.add_argument(
@@ -184,7 +205,7 @@ def main():
     ap.add_argument(
         "--spreadsheet", default="files.xlsx", type=Path, help="File list spreadsheet"
     )
-    ap.add_argument("--server", type=str, help="URL of XNAT server")
+    ap.add_argument("--server", type=str, help="XNAT server")
     ap.add_argument("--project", type=str, help="XNAT project ID")
     ap.add_argument("--loglevel", type=str, default="info", help="Logging level")
     ap.add_argument(
@@ -232,17 +253,15 @@ def main():
         logger.info(f"Scanning directory {args.dir}")
         scan(matcher, args.dir, args.spreadsheet, include_unmatched=args.unmatched)
     else:
-        if not args.server:
-            logger.error("Can't upload without a server")
-            exit()
-        if not args.project:
-            logger.error("Can't upload without a project ID")
-            exit()
-        xnat_session = xnatutils.base.connect(args.server)
+        server = opt_or_config(args, config["xnat"], "Server")
+        project = opt_or_config(args, config["xnat"], "Project")
+        logger.warning(f"Server = {server}")
+        logger.warning(f"Project = {project}")
+        xnat_session = xnatutils.base.connect(server)
         upload(
             xnat_session,
             matcher,
-            args.project,
+            project,
             args.spreadsheet,
             args.test,
             args.overwrite,
