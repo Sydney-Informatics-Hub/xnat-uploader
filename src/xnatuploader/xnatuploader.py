@@ -185,11 +185,10 @@ def opt_or_config(args, config, param):
     value: the key in the config dict
     """
     value = None
-    logger.warning(f"{config}")
     params = vars(args)
     if param.lower() in params:
         value = params[param.lower()]
-    else:
+    if value is None:
         if param in config:
             value = config[param]
     if value is None:
