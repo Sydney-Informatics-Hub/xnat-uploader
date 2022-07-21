@@ -206,7 +206,10 @@ def main():
     )
     ap.add_argument("--server", type=str, help="XNAT server")
     ap.add_argument("--project", type=str, help="XNAT project ID")
-    ap.add_argument("--loglevel", type=str, default="info", help="Logging level")
+    ap.add_argument("--loglevel", type=str, default="warning", help="Logging level")
+    ap.add_argument(
+        "--logdir", type=Path, default="logs", help="Directory to write logs to"
+    )
     ap.add_argument(
         "--test",
         action="store_true",
@@ -233,7 +236,20 @@ def main():
     )
     args = ap.parse_args()
 
-    logging.basicConfig(level=args.loglevel.upper())
+    if not args.logdir.is_dir():
+        args.logdir.mkdir(parents=True)
+
+    logger.setLevel(logging.DEBUG)
+    logfh = logging.FileHandler(args.logdir / "xnatuploader.log")
+    logfh.setLevel(logging.DEBUG)
+    logger.addHandler(logfh)
+    logch = logging.StreamHandler()
+    logch.setLevel(args.loglevel.upper())
+    logger.addHandler(logch)
+
+    logger.debug("A debug message")
+    logger.info("An informative message")
+    logger.warning("A warning")
 
     if args.operation == "help":
         show_help()
