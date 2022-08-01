@@ -1,10 +1,7 @@
 import re
-import logging
 
 XNAT_HIERARCHY = ["Subject", "Session", "Dataset"]
 DICOM_PARAMS = ["Modality", "StudyDescription", "StudyDate"]
-
-logger = logging.getLogger(__name__)
 
 
 class RecipeException(Exception):
@@ -140,8 +137,7 @@ class Matcher:
         ---
         file: pathlib.Path
 
-        returns: tuple of str, dict of { str: str }
-                         or tuple of None, None
+        returns: a FileMatch
         """
         for label, recipes in self.recipes.items():
             values = self.match_recipe(recipes, filepath)
@@ -162,9 +158,9 @@ class Matcher:
             match.success = True
             match.xnat_params = self.map_values(values)
             match.selected = True
-        except Exception as e:
+        except ValueError:
             match.success = False
-            match.error = str(e)
+            match.error = "Unmatched"
             match.selected = False
         return match
 
@@ -235,13 +231,15 @@ class Matcher:
     def map_values(self, values):
         """
         Given a dict of values which has been captured from a filepath by a recipe,
-        try to map it to the XNAT hierarchy using the mappings
+        try to map it to the XNAT hierarchy
 
         values: dict of { str: str }
-        mappings: dict of { str: [ str ] }
         """
         xnat_params = {}
         for xnat_cat, path_vars in self.mappings.items():
+            for v in path_vars:
+                if v not in values:
+                    raise ValueError(f"value {v} not found")
             xnat_params[xnat_cat] = "".join([values[v] for v in path_vars])
         return xnat_params
 
@@ -262,6 +260,7 @@ class FileMatch:
         self.dicom_params = None
         self.session_label = None
         self.error = None
+        self.success = False
         self.status = None
         self.selected = None
         self._columns = None
