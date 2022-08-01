@@ -97,7 +97,8 @@ class Matcher:
         character after the parameter in the pattern, or the end of the recipe.
 
         "*" and "**" are special recipes for matching and ignoring one or more
-        than one intervening directories.
+        than one intervening directories. They are returned as-is without being
+        converted to a regexp.
 
         A list of all the params is returned so that calling code can know what to
         expect from the pattern without having to run it or reparse the recipe.
@@ -114,7 +115,8 @@ class Matcher:
 
         regexp = ""
         params = []
-        # todo: check for wildcard * and ** operators and return something
+        if recipe == "*":  # or recipe == "**":
+            return [], recipe
         for macro in re.finditer(r"{(.*?)}([^{]*)", recipe):
             param, delimiter = macro.group(1, 2)
             if param in params:
@@ -206,12 +208,16 @@ class Matcher:
         values = {}
         while matchpatterns and dirs:
             pattern = matchpatterns[-1]
-            m = pattern.match(dirs[-1])
-            if not m:
-                return None
-            groups = m.groupdict()
-            for k, v in groups.items():
-                values[k] = v
+            if pattern == "*":
+                # * matches anything, once
+                pass
+            else:
+                m = pattern.match(dirs[-1])
+                if not m:
+                    return None
+                groups = m.groupdict()
+                for k, v in groups.items():
+                    values[k] = v
             matchpatterns.pop()
             dirs.pop()
         return values
