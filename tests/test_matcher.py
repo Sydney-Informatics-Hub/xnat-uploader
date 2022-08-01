@@ -1,57 +1,34 @@
-from xnatuploader.matcher import Matcher
 from pathlib import Path
 import random
 import string
 from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-CASES = {
-    "basic": {
-        "patterns": ["{Subject}", "{YYYY}{MM}{DD}", "{Filename}"],
-        "paths": [
-            {
-                "path": "JoeBlow/20120301/test.dcm",
-                "values": {
-                    "Subject": "JoeBlow",
-                    "Session": "20120301",
-                    "Dataset": "test.dcm",
-                },
-            }
-        ],
-    },
-    "one_glob": {
-        "patterns": ["{Subject}", "*", "{YYYY}{MM}{DD}", "{Filename}"],
-        "paths": [
-            {
-                "path": "JoeBlow/ignoreMe/20120301/test.dcm",
-                "values": {
-                    "Subject": "JoeBlow",
-                    "Session": "20120301",
-                    "Dataset": "test.dcm",
-                },
-            }
-        ],
-    },
-    "multi_glob": {
-        "patterns": ["{Subject}", "{YYYY}{MM}{DD}", "**", "{Filename}"],
-        "paths": [
-            {
-                "path": "JoeBlow/20120301/ignoreMe/ignore_Me_too/test.dcm",
-                "values": {
-                    "Subject": "JoeBlow",
-                    "Session": "20120301",
-                    "Dataset": "test.dcm",
-                },
-            }
-        ],
-    },
-}
+def test_match(matcher_case):
+    matcher, case = matcher_case
+    for path in case["paths"]:
+        results = matcher.match(Path(path["path"]))
+        assert filematch_to_dict(results) == path["values"]
 
-MAPPINGS = {
-    "Subject": ["Subject"],
-    "Session": ["YYYY", "MM", "DD"],
-    "Dataset": ["Filename"],
-}
+
+def test_no_match(matcher_case):
+    matcher, case = matcher_case
+    if "bad_paths" in case:
+        for bad_path in case["bad_paths"]:
+            results = matcher.match(Path(bad_path))
+            assert not results.success
+            assert results.error == "Unmatched"
+
+
+def test_random(matcher_case):
+    matcher, case = matcher_case
+    for i in range(5):
+        path, expect = make_random_path(case["patterns"])
+        results = matcher.match(Path(path))
+        assert filematch_to_dict(results) == expect
 
 
 def random_word():
@@ -65,6 +42,12 @@ def random_date():
 
 
 def pattern_to_path(pattern, subject, session, filename):
+    """
+    Given a matcher pattern and a subject, session and filename, return
+    a path which that pattern should match. This assumes that the pattern
+    contains {Subject}, {YYYY}{MM}{DD} and {Filename} and that these mappings
+    will be used in the Matcher.
+    """
     dirs = []
     for part in pattern:
         if part == "*":
@@ -95,22 +78,3 @@ def make_random_path(pattern):
 
 def filematch_to_dict(fm):
     return {"Subject": fm.subject, "Session": fm.session, "Dataset": fm.dataset}
-
-
-def test_match():
-    for label, case in CASES.items():
-        config = {"paths": {"test": case["patterns"]}, "mappings": MAPPINGS}
-        matcher = Matcher(config)
-        for path in case["paths"]:
-            results = matcher.match(Path(path["path"]))
-            assert filematch_to_dict(results) == path["values"]
-
-
-def test_random():
-    for label, case in CASES.items():
-        config = {"paths": {"test": case["patterns"]}, "mappings": MAPPINGS}
-        matcher = Matcher(config)
-        for i in range(1000):
-            path, expect = make_random_path(case["patterns"])
-            results = matcher.match(Path(path))
-            assert filematch_to_dict(results) == expect
