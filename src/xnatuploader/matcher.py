@@ -202,23 +202,18 @@ class Matcher:
         Returns: None, or dict of { str: str }
         """
         dirs = list(path.parts)
-        matchpatterns = patterns
+        matchpatterns = patterns[:]
         values = {}
         while matchpatterns and dirs:
             pattern = matchpatterns[-1]
-            logger.warning(f"Matching {dirs[-1]} against {pattern}")
             m = pattern.match(dirs[-1])
             if not m:
-                logger.warning("no match")
                 return None
             groups = m.groupdict()
-            logger.warning(f"matched {groups}")
             for k, v in groups.items():
                 values[k] = v
             matchpatterns.pop()
             dirs.pop()
-        logger.warning(f"got to end {matchpatterns} {dirs}")
-        logger.warning(values)
         return values
 
     def map_values(self, values):
