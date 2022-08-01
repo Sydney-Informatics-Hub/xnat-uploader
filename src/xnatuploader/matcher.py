@@ -50,7 +50,7 @@ class Matcher:
         variable, which is a list of all the params, and a list of compiled
         regular expressions.
         ---
-        recipe_config: dict of { str: str }
+        recipe_config: dict of { str: list of str  }
         """
         self.params = []
         self.recipes = {}
@@ -96,6 +96,9 @@ class Matcher:
         parameter names are converted into a non-greedy match up to the next
         character after the parameter in the pattern, or the end of the recipe.
 
+        "*" and "**" are special recipes for matching and ignoring one or more
+        than one intervening directories.
+
         A list of all the params is returned so that calling code can know what to
         expect from the pattern without having to run it or reparse the recipe.
         Params are listed in the order they appear in the pattern.
@@ -111,6 +114,7 @@ class Matcher:
 
         regexp = ""
         params = []
+        # todo: check for wildcard * and ** operators and return something
         for macro in re.finditer(r"{(.*?)}([^{]*)", recipe):
             param, delimiter = macro.group(1, 2)
             if param in params:
@@ -171,7 +175,7 @@ class Matcher:
         match.from_row(row)
         return match
 
-    def match_recipe(self, recipes, path):
+    def match_recipe(self, patterns, path):
         """
         Attempt to match a pathlib.Path against a list of recipe patterns,
         returning the collected values if successful.
@@ -197,18 +201,24 @@ class Matcher:
 
         Returns: None, or dict of { str: str }
         """
-        parts = path.parts
-        if len(parts) < len(recipes):
-            return None
-        matchparts = parts[-len(recipes) :]
+        dirs = list(path.parts)
+        matchpatterns = patterns
         values = {}
-        for pattern in recipes:
-            m = pattern.match(matchparts[0])
+        while matchpatterns and dirs:
+            pattern = matchpatterns[-1]
+            logger.warning(f"Matching {dirs[-1]} against {pattern}")
+            m = pattern.match(dirs[-1])
             if not m:
+                logger.warning("no match")
                 return None
-            for k, v in m.groupdict().items():
+            groups = m.groupdict()
+            logger.warning(f"matched {groups}")
+            for k, v in groups.items():
                 values[k] = v
-            matchparts = matchparts[1:]
+            matchpatterns.pop()
+            dirs.pop()
+        logger.warning(f"got to end {matchpatterns} {dirs}")
+        logger.warning(values)
         return values
 
     def map_values(self, values):
