@@ -115,7 +115,7 @@ class Matcher:
 
         regexp = ""
         params = []
-        if recipe == "*":  # or recipe == "**":
+        if recipe == "*" or recipe == "**":
             return [], recipe
         for macro in re.finditer(r"{(.*?)}([^{]*)", recipe):
             param, delimiter = macro.group(1, 2)
@@ -209,8 +209,18 @@ class Matcher:
         while matchpatterns and dirs:
             pattern = matchpatterns[-1]
             if pattern == "*":
-                # * matches anything, once
-                pass
+                matchpatterns.pop()
+                dirs.pop()
+            elif pattern == "**":
+                if len(matchpatterns) > 1:
+                    if matchpatterns[-2].match(dirs[-1]):
+                        # if the next level up matches, stop chasing **
+                        matchpatterns.pop()
+                    else:
+                        # otherwise, keep chasing the **
+                        dirs.pop()
+                else:
+                    raise RecipeException("** at start of pattern")
             else:
                 m = pattern.match(dirs[-1])
                 if not m:
@@ -218,8 +228,8 @@ class Matcher:
                 groups = m.groupdict()
                 for k, v in groups.items():
                     values[k] = v
-            matchpatterns.pop()
-            dirs.pop()
+                matchpatterns.pop()
+                dirs.pop()
         return values
 
     def map_values(self, values):

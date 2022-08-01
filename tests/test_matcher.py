@@ -2,10 +2,7 @@ from xnatuploader.matcher import Matcher
 from pathlib import Path
 import random
 import string
-import logging
 from datetime import datetime, timedelta
-
-logger = logging.getLogger(__name__)
 
 
 CASES = {
@@ -27,6 +24,19 @@ CASES = {
         "paths": [
             {
                 "path": "JoeBlow/ignoreMe/20120301/test.dcm",
+                "values": {
+                    "Subject": "JoeBlow",
+                    "Session": "20120301",
+                    "Dataset": "test.dcm",
+                },
+            }
+        ],
+    },
+    "multi_glob": {
+        "patterns": ["{Subject}", "{YYYY}{MM}{DD}", "**", "{Filename}"],
+        "paths": [
+            {
+                "path": "JoeBlow/20120301/ignoreMe/ignore_Me_too/test.dcm",
                 "values": {
                     "Subject": "JoeBlow",
                     "Session": "20120301",
