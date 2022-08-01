@@ -40,10 +40,14 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
     """
     wb = load_workbook(spreadsheet)
     ws = add_filesheet(wb, matcher)
+    count = 0
+    matches = 0
     for file in root.glob("**/*"):
+        count += 1
+        logger.debug(f"Scanning {file}")
         filematch = matcher.match(file)
-        logger.debug(f"File {filematch.file} match {filematch.values}")
         if filematch.values is not None:
+            matches += 1
             logger.debug(f"Matched {filematch.file}")
             if file.suffix == ".dcm":
                 filematch.dicom_params = read_dicom(file)
@@ -51,6 +55,8 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
         else:
             if include_unmatched:
                 ws.append(filematch.columns)
+    logger.info(f"Scanned {count} files under {root}")
+    logger.info(f"Saved {matches} matching files to {spreadsheet}")
     wb.save(spreadsheet)
 
 
@@ -206,7 +212,7 @@ def main():
     )
     ap.add_argument("--server", type=str, help="XNAT server")
     ap.add_argument("--project", type=str, help="XNAT project ID")
-    ap.add_argument("--loglevel", type=str, default="warning", help="Logging level")
+    ap.add_argument("--loglevel", type=str, default="info", help="Logging level")
     ap.add_argument(
         "--logdir", type=Path, default="logs", help="Directory to write logs to"
     )
@@ -241,7 +247,7 @@ def main():
 
     logger.setLevel(logging.DEBUG)
     logfh = logging.FileHandler(args.logdir / "xnatuploader.log")
-    logfh.setLevel(logging.DEBUG)
+    logfh.setLevel(args.loglevel.upper())
     logger.addHandler(logfh)
     logch = logging.StreamHandler()
     logch.setLevel(args.loglevel.upper())
