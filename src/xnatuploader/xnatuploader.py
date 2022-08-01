@@ -247,10 +247,6 @@ def main():
     logch.setLevel(args.loglevel.upper())
     logger.addHandler(logch)
 
-    logger.debug("A debug message")
-    logger.info("An informative message")
-    logger.warning("A warning")
-
     if args.operation == "help":
         show_help()
         exit()
