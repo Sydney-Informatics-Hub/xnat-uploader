@@ -1,4 +1,5 @@
-import xnatutils
+# import xnatutils
+import xnatuploader.put
 
 
 class Upload:
@@ -26,7 +27,7 @@ class Upload:
         project: the XNAT project id to which we're uploading
         overwrite: Boolean
         """
-        xnatutils.put(
+        xnatuploader.put.put(
             self.session_label,
             self.scan_type,
             [mf.file for mf in self.files],
