@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import sys
 from pathlib import Path
 import xnatutils
 from openpyxl import load_workbook
@@ -85,6 +86,19 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
 
     uploads = collate_uploads(project, files)
     ws = add_filesheet(wb, matcher)
+    try:
+        wb.save(spreadsheet)
+    except PermissionError:
+        logger.error(
+            f"""
+Upload cancelled because a permissions error prevented the script from writing
+to {spreadsheet}.
+
+If you are on Windows, this may be because you have the spreadsheet open in
+Excel. Try closing the spreadsheet and running the script again.
+"""
+        )
+        sys.exit()
     for session_label, upload in uploads.items():
         error = None
         logger.info(f"Uploading to {session_label}")
