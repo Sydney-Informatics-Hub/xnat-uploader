@@ -6,27 +6,14 @@ import sys
 from pathlib import Path
 import xnatutils
 from openpyxl import load_workbook
-from pydicom import dcmread
 
-from xnatuploader.matcher import Matcher, DICOM_PARAMS
+from xnatuploader.matcher import Matcher
 from xnatuploader.workbook import new_workbook, add_filesheet, load_config
 from xnatuploader.upload import Upload
 
 FILE_COLUMN_WIDTH = 50
 
 logger = logging.getLogger(__name__)
-
-
-def read_dicom(file):
-    """
-    Read the values for each parameter in DICOM_PARAMS from a DICOM file
-    ---
-    file: pathlib.Path
-
-    returns: dict of str by str
-    """
-    dc = dcmread(file)
-    return {p: dc.get(p) for p in DICOM_PARAMS}
 
 
 def scan(matcher, root, spreadsheet, include_unmatched=True):
@@ -44,18 +31,17 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
     count = 0
     matches = 0
     for file in root.glob("**/*"):
-        count += 1
-        logger.debug(f"Scanning {file}")
-        filematch = matcher.match(file)
-        if filematch.values is not None:
-            matches += 1
-            logger.debug(f"Matched {filematch.file}")
-            if file.suffix == ".dcm":
-                filematch.dicom_params = read_dicom(file)
-            ws.append(filematch.columns)
-        else:
-            if include_unmatched:
+        if file.is_file():
+            count += 1
+            logger.debug(f"Scanning {file}")
+            filematch = matcher.match(file)
+            if filematch.values is not None:
+                matches += 1
+                logger.debug(f"Matched {filematch.file}")
                 ws.append(filematch.columns)
+            else:
+                if include_unmatched:
+                    ws.append(filematch.columns)
     logger.info(f"Scanned {count} files under {root}")
     logger.info(f"Saved {matches} matching files to {spreadsheet}")
     wb.save(spreadsheet)
@@ -83,7 +69,6 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
         else:
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
-
     uploads = collate_uploads(project, files)
     ws = add_filesheet(wb, matcher)
     try:

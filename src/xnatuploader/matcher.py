@@ -1,7 +1,12 @@
 import re
+import logging
+from pydicom import dcmread
+from pydicom.errors import InvalidDicomError
 
 XNAT_HIERARCHY = ["Subject", "Session", "Dataset"]
 DICOM_PARAMS = ["Modality", "StudyDescription", "StudyDate"]
+
+logger = logging.getLogger(__name__)
 
 
 class RecipeException(Exception):
@@ -27,15 +32,14 @@ class Matcher:
         self._dicom_params = set(DICOM_PARAMS)
         for k, vs in self.mappings.items():
             for v in vs:
-                if v not in self.params:
+                if v[:5] == "DICOM":
+                    self._dicom_params.add(v[6:])
+                elif v not in self.params:
                     raise Exception(
-                        f"Value {v} in mapping for {k} not defined in a recipe"
+                        f"Value {v} in mapping for {k} not defined in a path"
                     )
         if set(self.mappings.keys()) != set(XNAT_HIERARCHY):
             raise Exception(f"Must have mappings for each of {XNAT_HIERARCHY}")
-        for mapping in self.mappings:
-            if mapping[:5] == "DICOM":
-                self._dicom_params.add(mapping[5:])
 
     @property
     def headers(self):
@@ -138,33 +142,55 @@ class Matcher:
             params.append(param)
         return params, re.compile(regexp)
 
-    def match(self, filepath):
+    def match_path(self, filepath):
         """
         Try to match a filepath against each of the recipes and return the label
         and values for the first one which matches.
         ---
         file: pathlib.Path
 
-        returns: a FileMatch
+        returns: { str: str }
         """
         for label, recipes in self.recipes.items():
             values = self.match_recipe(recipes, filepath)
             if values:
-                return self.make_filematch(filepath, label, values)
+                return label, values
+        return None, None
+
+    def match(self, filepath):
+        """
+        Calls match_path to get values from the filepath, and then tries to
+        read DICOM values from the file itself. Returns a FileMatch object
+        whether matching succeeds or fails - the success flag and values will
+        be set if it succeeded.
+        ---
+        file: pathlib.Path
+
+        returns: a FileMatch
+        """
+        label, values = self.match_path(filepath)
+        if label:
+            dicom_values = self.read_dicom(filepath)
+            if dicom_values is None:
+                match = FileMatch(self, filepath, None)
+                match.error = "No DICOM metadata"
+                return match
+            return self.make_filematch(filepath, label, values, dicom_values)
         match = FileMatch(self, filepath, None)
         match.error = "Unmatched"
         return match
 
-    def make_filematch(self, file, label, values):
+    def make_filematch(self, file, label, path_values, dicom_values):
         """
         Map the values captured to XNAT hierarchy values and return an
         FileMatch object
         """
         match = FileMatch(self, file, label)
-        match.values = values
+        match.values = path_values
+        match.dicom_values = dicom_values
         try:
             match.success = True
-            match.xnat_params = self.map_values(values)
+            match.xnat_params = self.map_values(path_values, dicom_values)
             match.selected = True
         except ValueError:
             match.success = False
@@ -236,19 +262,37 @@ class Matcher:
                 dirs.pop()
         return values
 
-    def map_values(self, values):
+    def read_dicom(self, file):
+        """
+        Try to parse the dicom metadata from the file and returns a dict
+        of all the values extracted for this Matcher's dicom_params
+        ---
+        file: a pathlib.Path
+
+        returns: { str: str }
+        """
+        try:
+            dc_meta = dcmread(file)
+            values = {p: dc_meta.get(p) for p in self._dicom_params}
+            return values
+        except InvalidDicomError:
+            return None
+
+    def map_values(self, path_values, dicom_values):
         """
         Given a dict of values which has been captured from a filepath by a recipe,
         try to map it to the XNAT hierarchy
 
         values: dict of { str: str }
         """
+        for k, v in dicom_values.items():
+            path_values["DICOM:" + k] = v
         xnat_params = {}
         for xnat_cat, path_vars in self.mappings.items():
             for v in path_vars:
-                if v not in values:
+                if v not in path_values:
                     raise ValueError(f"value {v} not found")
-            xnat_params[xnat_cat] = "".join([values[v] for v in path_vars])
+            xnat_params[xnat_cat] = "".join([path_values[v] for v in path_vars])
         return xnat_params
 
 
@@ -264,8 +308,8 @@ class FileMatch:
         self.label = label
         self.file = str(file)
         self.values = None
+        self.dicom_values = None
         self.xnat_params = None
-        self.dicom_params = None
         self.session_label = None
         self.error = None
         self.success = False
@@ -302,7 +346,7 @@ class FileMatch:
                 self._columns += [self.session_label]
             self._columns += self.dict2columns(XNAT_HIERARCHY, self.xnat_params)
             self._columns += self.dict2columns(
-                self.matcher.dicom_params, self.dicom_params
+                self.matcher.dicom_params, self.dicom_values
             )
             self._columns += self.dict2columns(self.matcher.params, self.values)
         else:
@@ -330,13 +374,12 @@ class FileMatch:
             "Session": row[6],
             "Dataset": row[7],
         }
-        self.dicom_params = {
-            "Modality": row[8],
-            "StudyDescription": row[9],
-            "StudyDate": row[10],
-        }
+        self.dicom_values = {}
+        c = 8
+        for p in self.matcher.dicom_params:
+            self.dicom_values[p] = row[c]
+            c += 1
         self.values = {}
-        c = 11
         for p in self.matcher.params:
             self.values[p] = row[c]
             c += 1
@@ -366,13 +409,13 @@ class FileMatch:
     def study_date(self):
         if self.session is not None:
             return self.session
-        if self.dicom_params is not None:
-            return self.dicom_params["StudyDate"]
+        if self.dicom_values is not None:
+            return self.dicom_values["StudyDate"]
         return ""
 
     @property
     def modality(self):
-        if self.dicom_params is not None:
-            return self.dicom_params["Modality"]
+        if self.dicom_values is not None:
+            return self.dicom_values["Modality"]
         else:
             return "OT"  # DICOM code for "Other"

@@ -28,33 +28,33 @@ def xnat_project():
 def matcher_case(request):
     MAPPINGS = {
         "Subject": ["Subject"],
-        "Session": ["YYYY", "MM", "DD"],
+        "Session": ["DDDDDDDD"],
         "Dataset": ["Filename"],
     }
     CASES = {
         "basic": {
-            "patterns": ["{Subject}", "{YYYY}{MM}{DD}", "{Filename}"],
+            "patterns": ["{Subject}", "{DDDDDDDD}", "{Filename}"],
             "paths": [
                 {
                     "path": "JoeBlow/20120301/test.dcm",
                     "values": {
                         "Subject": "JoeBlow",
-                        "Session": "20120301",
-                        "Dataset": "test.dcm",
+                        "DDDDDDDD": "20120301",
+                        "Filename": "test.dcm",
                     },
                 },
             ],
             "bad_paths": ["JoeBlow/201201/test.dcm", "bad"],
         },
         "one_glob": {
-            "patterns": ["{Subject}", "{YYYY}{MM}{DD}", "*", "{Filename}"],
+            "patterns": ["{Subject}", "{DDDDDDDD}", "*", "{Filename}"],
             "paths": [
                 {
                     "path": "JoeBlow/20120301/ignored/test.dcm",
                     "values": {
                         "Subject": "JoeBlow",
-                        "Session": "20120301",
-                        "Dataset": "test.dcm",
+                        "DDDDDDDD": "20120301",
+                        "Filename": "test.dcm",
                     },
                 }
             ],
@@ -64,22 +64,22 @@ def matcher_case(request):
             ],
         },
         "multi_glob": {
-            "patterns": ["{Subject}", "{YYYY}{MM}{DD}", "**", "{Filename}"],
+            "patterns": ["{Subject}", "{DDDDDDDD}", "**", "{Filename}"],
             "paths": [
                 {
                     "path": "JoeBlow/20120301/ignoreMe/ignore_Me_too/test.dcm",
                     "values": {
                         "Subject": "JoeBlow",
-                        "Session": "20120301",
-                        "Dataset": "test.dcm",
+                        "DDDDDDDD": "20120301",
+                        "Filename": "test.dcm",
                     },
                 },
                 {
                     "path": "JoeBlow/20120301/test.dcm",
                     "values": {
                         "Subject": "JoeBlow",
-                        "Session": "20120301",
-                        "Dataset": "test.dcm",
+                        "DDDDDDDD": "20120301",
+                        "Filename": "test.dcm",
                     },
                 },
             ],
