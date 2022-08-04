@@ -24,6 +24,7 @@ class Matcher:
         self.parse_recipes(config["paths"])
         self.mappings = config["mappings"]
         self._headers = None
+        self._dicom_params = set(DICOM_PARAMS)
         for k, vs in self.mappings.items():
             for v in vs:
                 if v not in self.params:
@@ -32,13 +33,20 @@ class Matcher:
                     )
         if set(self.mappings.keys()) != set(XNAT_HIERARCHY):
             raise Exception(f"Must have mappings for each of {XNAT_HIERARCHY}")
+        for mapping in self.mappings:
+            if mapping[:5] == "DICOM":
+                self._dicom_params.add(mapping[5:])
 
     @property
     def headers(self):
         if self._headers is None:
             self._headers = ["Pattern", "File", "Upload", "Status", "SessionLabel"]
-            self._headers += XNAT_HIERARCHY + DICOM_PARAMS + self.params
+            self._headers += XNAT_HIERARCHY + self.dicom_params + self.params
         return self._headers
+
+    @property
+    def dicom_params(self):
+        return sorted(self._dicom_params)
 
     def parse_recipes(self, recipe_config):
         """
@@ -292,19 +300,20 @@ class FileMatch:
                 self._columns += [""]
             else:
                 self._columns += [self.session_label]
-            if self.xnat_params is None:
-                self._columns += ["", "", ""]
-            else:
-                self._columns += [self.xnat_params[p] for p in XNAT_HIERARCHY]
-            if self.dicom_params is None:
-                self._columns += ["", "", ""]
-            else:
-                self._columns += [self.dicom_params[p] for p in DICOM_PARAMS]
-            if self.values is not None:
-                self._columns += [self.values[p] for p in self.matcher.params]
+            self._columns += self.dict2columns(XNAT_HIERARCHY, self.xnat_params)
+            self._columns += self.dict2columns(
+                self.matcher.dicom_params, self.dicom_params
+            )
+            self._columns += self.dict2columns(self.matcher.params, self.values)
         else:
             self._columns = [self.label, self.file, "N", "unmatched"]
         return self._columns
+
+    def dict2columns(self, columns, values):
+        if values is None:
+            return ["" for _ in columns]
+        else:
+            return [values[c] for c in columns]
 
     def from_row(self, row):
         """
