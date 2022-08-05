@@ -3,6 +3,9 @@
 import argparse
 import logging
 import sys
+import os
+import contextlib
+from tqdm import tqdm
 from pathlib import Path
 import xnatutils
 from openpyxl import load_workbook
@@ -26,23 +29,23 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
     spreadsheet: pathlib.Path
     include_unmatched: bool
     """
+    logger.info(f"Loading {spreadsheet}")
     wb = load_workbook(spreadsheet)
     ws = add_filesheet(wb, matcher)
-    count = 0
     matches = 0
-    for file in root.glob("**/*"):
+    logger.info("Preparing file list")
+    files = [f for f in root.glob("**/*") if f.is_file()]
+    for file in tqdm(files):
         if file.is_file():
-            count += 1
             logger.debug(f"Scanning {file}")
             filematch = matcher.match(file)
-            if filematch.values is not None:
+            if filematch.success:
                 matches += 1
                 logger.debug(f"Matched {filematch.file}")
                 ws.append(filematch.columns)
             else:
                 if include_unmatched:
                     ws.append(filematch.columns)
-    logger.info(f"Scanned {count} files under {root}")
     logger.info(f"Saved {matches} matching files to {spreadsheet}")
     wb.save(spreadsheet)
 
@@ -84,14 +87,15 @@ Excel. Try closing the spreadsheet and running the script again.
 """
         )
         sys.exit()
-    for session_label, upload in uploads.items():
+    for session_label, upload in tqdm(uploads.items()):
         error = None
-        logger.info(f"Uploading to {session_label}")
+        logger.debug(f"Uploading to {session_label}")
         if test:
             upload.log(logger)
         else:
             try:
-                upload.upload(xnat_session, project, overwrite)
+                with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+                    upload.upload(xnat_session, project, overwrite)
             except Exception as e:
                 logger.warning(f"Upload to  {session_label} failed: {e}")
                 error = str(e)

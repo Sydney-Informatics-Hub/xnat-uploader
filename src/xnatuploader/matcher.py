@@ -292,6 +292,8 @@ class Matcher:
             for v in path_vars:
                 if v not in path_values:
                     raise ValueError(f"value {v} not found")
+                if path_values[v] is None:
+                    raise ValueError(f"value {v} is None")
             xnat_params[xnat_cat] = "".join([path_values[v] for v in path_vars])
         return xnat_params
 
@@ -344,20 +346,20 @@ class FileMatch:
                 self._columns += [""]
             else:
                 self._columns += [self.session_label]
-            self._columns += self.dict2columns(XNAT_HIERARCHY, self.xnat_params)
-            self._columns += self.dict2columns(
+            self._columns += self.dict_to_columns(XNAT_HIERARCHY, self.xnat_params)
+            self._columns += self.dict_to_columns(
                 self.matcher.dicom_params, self.dicom_values
             )
-            self._columns += self.dict2columns(self.matcher.params, self.values)
+            self._columns += self.dict_to_columns(self.matcher.params, self.values)
         else:
             self._columns = [self.label, self.file, "N", "unmatched"]
         return self._columns
 
-    def dict2columns(self, columns, values):
+    def dict_to_columns(self, columns, values):
         if values is None:
             return ["" for _ in columns]
         else:
-            return [values[c] for c in columns]
+            return [values.get(c, "") for c in columns]
 
     def from_row(self, row):
         """
