@@ -28,7 +28,7 @@ def test_no_match(matcher_case):
 
 def test_random(matcher_case):
     matcher, case = matcher_case
-    for i in range(5):
+    for i in range(100):
         path, expect = make_random_path(case["patterns"])
         _, results = matcher.match_path(Path(path))
         assert results == expect
@@ -39,16 +39,21 @@ def random_word():
     return "".join([random.choice(string.ascii_letters) for i in range(n)])
 
 
+def random_id():
+    n = random.randint(1, 8)
+    return "".join([random.choice(string.digits) for i in range(n)])
+
+
 def random_date():
     dt = datetime.now() - timedelta(days=random.randint(1, 10000))
     return dt.strftime("%Y%m%d")
 
 
-def pattern_to_path(pattern, subject, session, filename):
+def pattern_to_path(pattern, subject, subjectid, session, filename):
     """
     Given a matcher pattern and a subject, session and filename, return
     a path which that pattern should match. This assumes that the pattern
-    contains {Subject}, {YYYY}{MM}{DD} and {Filename} and that these mappings
+    contains {name}-{ID}, {DDDDDDDD} and {Filename} and that these mappings
     will be used in the Matcher.
     """
     dirs = []
@@ -57,8 +62,8 @@ def pattern_to_path(pattern, subject, session, filename):
             dirs.append(random_word())
         elif part == "**":
             dirs.extend([random_word() for i in range(random.randint(1, 10))])
-        elif part == "{Subject}":
-            dirs.append(subject)
+        elif part == "{SubjectName}-{ID}":
+            dirs.append(subject + "-" + subjectid)
         elif part == "{DDDDDDDD}":
             dirs.append(session)
         elif part == "{Filename}":
@@ -73,10 +78,16 @@ def make_random_path(pattern):
     necessary.
     """
     subject = random_word()
+    subjectid = random_id()
     session = random_date()
     filename = random_word() + ".dcm"
-    path = pattern_to_path(pattern, subject, session, filename)
-    return path, {"Subject": subject, "DDDDDDDD": session, "Filename": filename}
+    path = pattern_to_path(pattern, subject, subjectid, session, filename)
+    return path, {
+        "SubjectName": subject,
+        "ID": subjectid,
+        "DDDDDDDD": session,
+        "Filename": filename,
+    }
 
 
 def is_incomplete(values):
@@ -85,7 +96,9 @@ def is_incomplete(values):
     """
     if values is None:
         return True
-    if "Subject" not in values:
+    if "name" not in values:
+        return True
+    if "ID" not in values:
         return True
     if "DDDDDDDD" not in values:
         return True

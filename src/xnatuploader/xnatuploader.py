@@ -32,7 +32,8 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
     logger.info(f"Loading {spreadsheet}")
     wb = load_workbook(spreadsheet)
     ws = add_filesheet(wb, matcher)
-    matches = 0
+    matched = 0
+    unmatched = 0
     logger.info("Preparing file list")
     files = [f for f in root.glob("**/*") if f.is_file()]
     for file in tqdm(files):
@@ -40,13 +41,20 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
             logger.debug(f"Scanning {file}")
             filematch = matcher.match(file)
             if filematch.success:
-                matches += 1
+                matched += 1
                 logger.debug(f"Matched {filematch.file}")
                 ws.append(filematch.columns)
             else:
                 if include_unmatched:
+                    unmatched += 1
+                    filematch.load_dicom()
                     ws.append(filematch.columns)
-    logger.info(f"Saved {matches} matching files to {spreadsheet}")
+    if include_unmatched:
+        logger.info(
+            f"Saved {matched} matching files and {unmatched} non-matching files to {spreadsheet}"
+        )
+    else:
+        logger.info(f"Saved {matched} matching files to {spreadsheet}")
     wb.save(spreadsheet)
 
 
@@ -101,7 +109,7 @@ Excel. Try closing the spreadsheet and running the script again.
                 error = str(e)
             for file in upload.files:
                 if error:
-                    file.status = error
+                    file.status = f"Error: {error}"
                 else:
                     file.status = "success"
                 ws.append(file.columns)

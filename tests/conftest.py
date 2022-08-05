@@ -27,18 +27,19 @@ def xnat_project():
 @pytest.fixture(scope="module", params=["basic", "one_glob", "multi_glob"])
 def matcher_case(request):
     MAPPINGS = {
-        "Subject": ["Subject"],
+        "Subject": ["ID"],
         "Session": ["DDDDDDDD"],
         "Dataset": ["Filename"],
     }
     CASES = {
         "basic": {
-            "patterns": ["{Subject}", "{DDDDDDDD}", "{Filename}"],
+            "patterns": ["{SubjectName}-{ID}", "{DDDDDDDD}", "{Filename}"],
             "paths": [
                 {
-                    "path": "JoeBlow/20120301/test.dcm",
+                    "path": "JoeBlow-1234/20120301/test.dcm",
                     "values": {
-                        "Subject": "JoeBlow",
+                        "SubjectName": "JoeBlow",
+                        "ID": "1234",
                         "DDDDDDDD": "20120301",
                         "Filename": "test.dcm",
                     },
@@ -47,44 +48,47 @@ def matcher_case(request):
             "bad_paths": ["JoeBlow/201201/test.dcm", "bad"],
         },
         "one_glob": {
-            "patterns": ["{Subject}", "{DDDDDDDD}", "*", "{Filename}"],
+            "patterns": ["{SubjectName}-{ID}", "{DDDDDDDD}", "*", "{Filename}"],
             "paths": [
                 {
-                    "path": "JoeBlow/20120301/ignored/test.dcm",
+                    "path": "JoeBlow-1234/20120301/ignored/test.dcm",
                     "values": {
-                        "Subject": "JoeBlow",
+                        "SubjectName": "JoeBlow",
+                        "ID": "1234",
                         "DDDDDDDD": "20120301",
                         "Filename": "test.dcm",
                     },
                 }
             ],
             "bad_paths": [
-                "JoeBlow/20120301/test.dcm",
-                "JoeBlow/20120301/too/deep/test.dcm",
+                "JoeBlow-1234/20120301/test.dcm",
+                "JoeBlow-1234/20120301/too/deep/test.dcm",
             ],
         },
         "multi_glob": {
-            "patterns": ["{Subject}", "{DDDDDDDD}", "**", "{Filename}"],
+            "patterns": ["{SubjectName}-{ID}", "{DDDDDDDD}", "**", "{Filename}"],
             "paths": [
                 {
-                    "path": "JoeBlow/20120301/ignoreMe/ignore_Me_too/test.dcm",
+                    "path": "JoeBlow-12345/20120301/ignoreMe/ignore_Me_too/test.dcm",
                     "values": {
-                        "Subject": "JoeBlow",
+                        "SubjectName": "JoeBlow",
+                        "ID": "12345",
                         "DDDDDDDD": "20120301",
                         "Filename": "test.dcm",
                     },
                 },
                 {
-                    "path": "JoeBlow/20120301/test.dcm",
+                    "path": "JoeBlow-12345/20120301/test.dcm",
                     "values": {
-                        "Subject": "JoeBlow",
+                        "SubjectName": "JoeBlow",
+                        "ID": "12345",
                         "DDDDDDDD": "20120301",
                         "Filename": "test.dcm",
                     },
                 },
             ],
             "bad_paths": [
-                "JoeBlow/201201/test.dcm",
+                "JoeBlow-12345/201201/test.dcm",
             ],
         },
     }
