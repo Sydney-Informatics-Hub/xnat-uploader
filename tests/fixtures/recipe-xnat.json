@@ -1,0 +1,17 @@
+{
+	"paths": {
+		"Scans": [
+			"{SubjectName}-{SubjectId}",
+			"{YYYY}{MM}{DD}-{Label}.dcm"
+		]
+	},
+	"mappings": {
+		"Subject": [ "SubjectId" ],
+		"Session": [ "YYYY", "MM","DD" ],
+		"Dataset": [ "Label" ]
+	},
+	"xnat": {
+		"Server": "https://localhost:8080",
+		"Project": "Test01"
+	}
+}

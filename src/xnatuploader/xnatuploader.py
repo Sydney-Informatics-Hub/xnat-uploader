@@ -3,30 +3,22 @@
 import argparse
 import logging
 import sys
+import os
+import contextlib
+from tqdm import tqdm
 from pathlib import Path
 import xnatutils
 from openpyxl import load_workbook
-from pydicom import dcmread
 
-from xnatuploader.matcher import Matcher, DICOM_PARAMS
+from xnatuploader.matcher import Matcher
 from xnatuploader.workbook import new_workbook, add_filesheet, load_config
 from xnatuploader.upload import Upload
 
 FILE_COLUMN_WIDTH = 50
 
+IGNORE_FILES = [".DS_Store"]
+
 logger = logging.getLogger(__name__)
-
-
-def read_dicom(file):
-    """
-    Read the values for each parameter in DICOM_PARAMS from a DICOM file
-    ---
-    file: pathlib.Path
-
-    returns: dict of str by str
-    """
-    dc = dcmread(file)
-    return {p: dc.get(p) for p in DICOM_PARAMS}
 
 
 def scan(matcher, root, spreadsheet, include_unmatched=True):
@@ -39,25 +31,33 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
     spreadsheet: pathlib.Path
     include_unmatched: bool
     """
+    logger.info(f"Loading {spreadsheet}")
     wb = load_workbook(spreadsheet)
     ws = add_filesheet(wb, matcher)
-    count = 0
-    matches = 0
-    for file in root.glob("**/*"):
-        count += 1
-        logger.debug(f"Scanning {file}")
-        filematch = matcher.match(file)
-        if filematch.values is not None:
-            matches += 1
-            logger.debug(f"Matched {filematch.file}")
-            if file.suffix == ".dcm":
-                filematch.dicom_params = read_dicom(file)
-            ws.append(filematch.columns)
-        else:
-            if include_unmatched:
+    matched = 0
+    unmatched = 0
+    logger.info("Preparing file list")
+    files = [f for f in root.glob("**/*") if f.is_file() and f.name not in IGNORE_FILES]
+    logger.info(f"Scanning directory {root}")
+    for file in tqdm(files):
+        if file.is_file():
+            logger.debug(f"Scanning {file}")
+            filematch = matcher.match(root, file)
+            if filematch.success:
+                matched += 1
+                logger.debug(f"Matched {filematch.file}")
                 ws.append(filematch.columns)
-    logger.info(f"Scanned {count} files under {root}")
-    logger.info(f"Saved {matches} matching files to {spreadsheet}")
+            else:
+                if include_unmatched:
+                    unmatched += 1
+                    filematch.load_dicom()
+                    ws.append(filematch.columns)
+    if include_unmatched:
+        logger.info(
+            f"Saved {matched} matching files and {unmatched} non-matching files to {spreadsheet}"
+        )
+    else:
+        logger.info(f"Saved {matched} matching files to {spreadsheet}")
     wb.save(spreadsheet)
 
 
@@ -83,7 +83,6 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
         else:
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
-
     uploads = collate_uploads(project, files)
     ws = add_filesheet(wb, matcher)
     try:
@@ -99,20 +98,21 @@ Excel. Try closing the spreadsheet and running the script again.
 """
         )
         sys.exit()
-    for session_label, upload in uploads.items():
+    for session_label, upload in tqdm(uploads.items()):
         error = None
-        logger.info(f"Uploading to {session_label}")
+        logger.debug(f"Uploading to {session_label}")
         if test:
             upload.log(logger)
         else:
             try:
-                upload.upload(xnat_session, project, overwrite)
+                with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+                    upload.upload(xnat_session, project, overwrite)
             except Exception as e:
                 logger.warning(f"Upload to  {session_label} failed: {e}")
                 error = str(e)
             for file in upload.files:
                 if error:
-                    file.status = error
+                    file.status = f"Error: {error}"
                 else:
                     file.status = "success"
                 ws.append(file.columns)
@@ -281,7 +281,6 @@ def main():
     matcher = Matcher(config)
 
     if args.operation == "scan":
-        logger.info(f"Scanning directory {args.dir}")
         scan(matcher, args.dir, args.spreadsheet, include_unmatched=args.unmatched)
     else:
         server = opt_or_config(args, config["xnat"], "Server")

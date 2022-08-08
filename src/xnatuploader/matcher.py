@@ -1,7 +1,12 @@
 import re
+import logging
+from pydicom import dcmread
+from pydicom.errors import InvalidDicomError
 
 XNAT_HIERARCHY = ["Subject", "Session", "Dataset"]
 DICOM_PARAMS = ["Modality", "StudyDescription", "StudyDate"]
+
+logger = logging.getLogger(__name__)
 
 
 class RecipeException(Exception):
@@ -24,11 +29,14 @@ class Matcher:
         self.parse_recipes(config["paths"])
         self.mappings = config["mappings"]
         self._headers = None
+        self._dicom_params = set(DICOM_PARAMS)
         for k, vs in self.mappings.items():
             for v in vs:
-                if v not in self.params:
+                if v[:5] == "DICOM":
+                    self._dicom_params.add(v[6:])
+                elif v not in self.params:
                     raise Exception(
-                        f"Value {v} in mapping for {k} not defined in a recipe"
+                        f"Value {v} in mapping for {k} not defined in a path"
                     )
         if set(self.mappings.keys()) != set(XNAT_HIERARCHY):
             raise Exception(f"Must have mappings for each of {XNAT_HIERARCHY}")
@@ -37,8 +45,12 @@ class Matcher:
     def headers(self):
         if self._headers is None:
             self._headers = ["Pattern", "File", "Upload", "Status", "SessionLabel"]
-            self._headers += XNAT_HIERARCHY + DICOM_PARAMS + self.params
+            self._headers += XNAT_HIERARCHY + self.dicom_params + self.params
         return self._headers
+
+    @property
+    def dicom_params(self):
+        return sorted(self._dicom_params)
 
     def parse_recipes(self, recipe_config):
         """
@@ -89,9 +101,12 @@ class Matcher:
         desired dict with the match.groupdict() function
 
         Parameter names which consist of one or more of the same character are
-        converted into patterns which match that number of digits. All other
-        parameter names are converted into a non-greedy match up to the next
-        character after the parameter in the pattern, or the end of the recipe.
+        converted into patterns which match that number of digits. The
+        parameter 'ID' matches a list of one or more consecutive digits.
+
+        All other parameter names are converted into a non-greedy match up to
+        the next character after the parameter in the pattern, or the end of
+        the recipe.
 
         "*" and "**" are special recipes for matching and ignoring one or more
         than one intervening directories. They are returned as-is without being
@@ -120,6 +135,8 @@ class Matcher:
                 raise RecipeException(f"Recipe has repeated parameter: {param}")
             if re.match(param[0] + "+$", param):
                 regexp += f"(?P<{param}>" + (r"\d" * len(param)) + ")"
+            elif param == "ID":
+                regexp += f"(?P<{param}>" + r"\d+" + ")"  # for Sublime Text
             else:
                 if delimiter != "":
                     c = delimiter[0]
@@ -130,38 +147,60 @@ class Matcher:
             params.append(param)
         return params, re.compile(regexp)
 
-    def match(self, filepath):
+    def match_path(self, filepath):
         """
         Try to match a filepath against each of the recipes and return the label
         and values for the first one which matches.
         ---
         file: pathlib.Path
 
-        returns: a FileMatch
+        returns: { str: str }
         """
         for label, recipes in self.recipes.items():
             values = self.match_recipe(recipes, filepath)
             if values:
-                return self.make_filematch(filepath, label, values)
+                return label, values
+        return None, None
+
+    def match(self, root, filepath):
+        """
+        Calls match_path to get values from the filepath, and then tries to
+        read DICOM values from the file itself. Returns a FileMatch object
+        whether matching succeeds or fails - the success flag and values will
+        be set if it succeeded.
+        ---
+        file: pathlib.Path
+
+        returns: a FileMatch
+        """
+        label, values = self.match_path(filepath.relative_to(root))
+        if label:
+            dicom_values = self.read_dicom(filepath)
+            if dicom_values is None:
+                match = FileMatch(self, filepath, None)
+                match.status = "No DICOM metadata"
+                return match
+            return self.make_filematch(filepath, label, values, dicom_values)
         match = FileMatch(self, filepath, None)
-        match.error = "Unmatched"
+        match.status = "unmatched"
         return match
 
-    def make_filematch(self, file, label, values):
+    def make_filematch(self, file, label, path_values, dicom_values):
         """
         Map the values captured to XNAT hierarchy values and return an
-        FileMatch object
+        FileMatch object. If the mapping was unsuccessful, the FileMatch will
+        have its success flag switched off
         """
         match = FileMatch(self, file, label)
-        match.values = values
+        match.values = path_values
+        match.dicom_values = dicom_values
         try:
+            match.xnat_params = self.map_values(path_values, dicom_values)
             match.success = True
-            match.xnat_params = self.map_values(values)
-            match.selected = True
         except ValueError:
             match.success = False
-            match.error = "Unmatched"
-            match.selected = False
+            match.status = "unmatched"
+        match.selected = match.success
         return match
 
     def from_spreadsheet(self, row):
@@ -203,44 +242,83 @@ class Matcher:
         matchpatterns = patterns[:]
         values = {}
         while matchpatterns and dirs:
-            pattern = matchpatterns[-1]
+            pattern = matchpatterns[0]
             if pattern == "*":
-                matchpatterns.pop()
-                dirs.pop()
+                matchpatterns.pop(0)
+                dirs.pop(0)
             elif pattern == "**":
                 if len(matchpatterns) > 1:
-                    if matchpatterns[-2].match(dirs[-1]):
-                        # if the next level up matches, stop chasing **
-                        matchpatterns.pop()
+                    if self.match_paths(matchpatterns[1:], dirs):
+                        # if the next directory matches the next pattern,
+                        # stop this '**'
+                        matchpatterns.pop(0)
                     else:
                         # otherwise, keep chasing the **
-                        dirs.pop()
+                        dirs.pop(0)
                 else:
-                    raise RecipeException("** at start of pattern")
+                    raise RecipeException("** at end of pattern")
             else:
-                m = pattern.match(dirs[-1])
+                m = self.match_paths(matchpatterns, dirs)
                 if not m:
                     return None
                 groups = m.groupdict()
                 for k, v in groups.items():
                     values[k] = v
-                matchpatterns.pop()
-                dirs.pop()
+                matchpatterns.pop(0)
+                dirs.pop(0)
         return values
 
-    def map_values(self, values):
+    def match_paths(self, patterns, dirs):
+        """
+        Given a list of patterns and path parts, this tries to match
+        the first pattern with the first path. If there's only one
+        pattern, it adds the extra condition that there must be only one
+        path - this is so that the last pattern in a recipe will only
+        match a file, not a directory
+        """
+        m = patterns[0].match(dirs[0])
+        if m is not None:
+            if len(patterns) > 1:
+                return m
+            if len(dirs) == 1:
+                return m
+        return None
+
+    def read_dicom(self, file):
+        """
+        Try to parse the dicom metadata from the file and returns a dict
+        of all the values extracted for this Matcher's dicom_params
+        ---
+        file: a pathlib.Path
+
+        returns: { str: str }
+        """
+        try:
+            dc_meta = dcmread(file)
+            values = {p: dc_meta.get(p) for p in self._dicom_params}
+            return values
+        except InvalidDicomError:
+            return None
+
+    def map_values(self, path_values, dicom_values):
         """
         Given a dict of values which has been captured from a filepath by a recipe,
-        try to map it to the XNAT hierarchy
+        try to map it to the XNAT hierarchy.
+
+        Raises: ValueError if any of the required values are missing
 
         values: dict of { str: str }
         """
+        for k, v in dicom_values.items():
+            path_values["DICOM:" + k] = v
         xnat_params = {}
         for xnat_cat, path_vars in self.mappings.items():
             for v in path_vars:
-                if v not in values:
+                if v not in path_values:
                     raise ValueError(f"value {v} not found")
-            xnat_params[xnat_cat] = "".join([values[v] for v in path_vars])
+                if path_values[v] is None:
+                    raise ValueError(f"value {v} is None")
+            xnat_params[xnat_cat] = "".join([path_values[v] for v in path_vars])
         return xnat_params
 
 
@@ -256,8 +334,8 @@ class FileMatch:
         self.label = label
         self.file = str(file)
         self.values = None
+        self.dicom_values = None
         self.xnat_params = None
-        self.dicom_params = None
         self.session_label = None
         self.error = None
         self.success = False
@@ -268,43 +346,38 @@ class FileMatch:
         self._selected = None
 
     @property
-    def columns(self):
+    def columns(self, refresh=False):
         """
         Returns this file's representation in the spreadsheet, which may or
         may not be a successful match
         """
         if self._columns is not None:
             return self._columns
-        if self.label is not None:
-            self._columns = [self.label, self.file]
-            if self.selected:
-                self._columns += ["Y"]
-            else:
-                self._columns += ["N"]
-            if self.error is not None:
-                self._columns += [f"{self.status}: {self.error}"]
-            else:
-                if self.status is None:
-                    self._columns += [""]
-                else:
-                    self._columns += [self.status]
-            if self.session_label is None:
+        self._columns = [self.label, self.file]
+        if self.selected:
+            self._columns += ["Y"]
+        else:
+            self._columns += ["N"]
+        if self.error is not None:
+            self._columns += [self.error]
+        else:
+            if self.status is None:
                 self._columns += [""]
             else:
-                self._columns += [self.session_label]
-            if self.xnat_params is None:
-                self._columns += ["", "", ""]
-            else:
-                self._columns += [self.xnat_params[p] for p in XNAT_HIERARCHY]
-            if self.dicom_params is None:
-                self._columns += ["", "", ""]
-            else:
-                self._columns += [self.dicom_params[p] for p in DICOM_PARAMS]
-            if self.values is not None:
-                self._columns += [self.values[p] for p in self.matcher.params]
-        else:
-            self._columns = [self.label, self.file, "N", "unmatched"]
+                self._columns += [self.status]
+        self._columns += [self.session_label]
+        self._columns += self.dict_to_columns(XNAT_HIERARCHY, self.xnat_params)
+        self._columns += self.dict_to_columns(
+            self.matcher.dicom_params, self.dicom_values
+        )
+        self._columns += self.dict_to_columns(self.matcher.params, self.values)
         return self._columns
+
+    def dict_to_columns(self, columns, values):
+        if values is None:
+            return ["" for _ in columns]
+        else:
+            return [values.get(c, "") for c in columns]
 
     def from_row(self, row):
         """
@@ -321,16 +394,25 @@ class FileMatch:
             "Session": row[6],
             "Dataset": row[7],
         }
-        self.dicom_params = {
-            "Modality": row[8],
-            "StudyDescription": row[9],
-            "StudyDate": row[10],
-        }
+        self.dicom_values = {}
+        c = 8
+        for p in self.matcher.dicom_params:
+            self.dicom_values[p] = row[c]
+            c += 1
         self.values = {}
-        c = 11
         for p in self.matcher.params:
             self.values[p] = row[c]
             c += 1
+
+    def load_dicom(self):
+        """
+        Utility method used to load the dicom metadata for an umatched file
+        when debugging
+        """
+        dicom_values = self.matcher.read_dicom(self.file)
+        if dicom_values is not None:
+            self.dicom_values = dicom_values
+            self._columns = None
 
     @property
     def subject(self):
@@ -357,13 +439,13 @@ class FileMatch:
     def study_date(self):
         if self.session is not None:
             return self.session
-        if self.dicom_params is not None:
-            return self.dicom_params["StudyDate"]
+        if self.dicom_values is not None:
+            return self.dicom_values["StudyDate"]
         return ""
 
     @property
     def modality(self):
-        if self.dicom_params is not None:
-            return self.dicom_params["Modality"]
+        if self.dicom_values is not None:
+            return self.dicom_values["Modality"]
         else:
             return "OT"  # DICOM code for "Other"
