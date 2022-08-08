@@ -16,6 +16,8 @@ from xnatuploader.upload import Upload
 
 FILE_COLUMN_WIDTH = 50
 
+IGNORE_FILES = [".DS_Store"]
+
 logger = logging.getLogger(__name__)
 
 
@@ -35,11 +37,12 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
     matched = 0
     unmatched = 0
     logger.info("Preparing file list")
-    files = [f for f in root.glob("**/*") if f.is_file()]
+    files = [f for f in root.glob("**/*") if f.is_file() and f.name not in IGNORE_FILES]
+    logger.info(f"Scanning directory {root}")
     for file in tqdm(files):
         if file.is_file():
             logger.debug(f"Scanning {file}")
-            filematch = matcher.match(file)
+            filematch = matcher.match(root, file)
             if filematch.success:
                 matched += 1
                 logger.debug(f"Matched {filematch.file}")
@@ -278,7 +281,6 @@ def main():
     matcher = Matcher(config)
 
     if args.operation == "scan":
-        logger.info(f"Scanning directory {args.dir}")
         scan(matcher, args.dir, args.spreadsheet, include_unmatched=args.unmatched)
     else:
         server = opt_or_config(args, config["xnat"], "Server")

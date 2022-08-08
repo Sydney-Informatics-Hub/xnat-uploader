@@ -162,7 +162,7 @@ class Matcher:
                 return label, values
         return None, None
 
-    def match(self, filepath):
+    def match(self, root, filepath):
         """
         Calls match_path to get values from the filepath, and then tries to
         read DICOM values from the file itself. Returns a FileMatch object
@@ -173,7 +173,7 @@ class Matcher:
 
         returns: a FileMatch
         """
-        label, values = self.match_path(filepath)
+        label, values = self.match_path(filepath.relative_to(root))
         if label:
             dicom_values = self.read_dicom(filepath)
             if dicom_values is None:
@@ -242,30 +242,47 @@ class Matcher:
         matchpatterns = patterns[:]
         values = {}
         while matchpatterns and dirs:
-            pattern = matchpatterns[-1]
+            pattern = matchpatterns[0]
             if pattern == "*":
-                matchpatterns.pop()
-                dirs.pop()
+                matchpatterns.pop(0)
+                dirs.pop(0)
             elif pattern == "**":
                 if len(matchpatterns) > 1:
-                    if matchpatterns[-2].match(dirs[-1]):
-                        # if the next level up matches, stop chasing **
-                        matchpatterns.pop()
+                    if self.match_paths(matchpatterns[1:], dirs):
+                        # if the next directory matches the next pattern,
+                        # stop this '**'
+                        matchpatterns.pop(0)
                     else:
                         # otherwise, keep chasing the **
-                        dirs.pop()
+                        dirs.pop(0)
                 else:
-                    raise RecipeException("** at start of pattern")
+                    raise RecipeException("** at end of pattern")
             else:
-                m = pattern.match(dirs[-1])
+                m = self.match_paths(matchpatterns, dirs)
                 if not m:
                     return None
                 groups = m.groupdict()
                 for k, v in groups.items():
                     values[k] = v
-                matchpatterns.pop()
-                dirs.pop()
+                matchpatterns.pop(0)
+                dirs.pop(0)
         return values
+
+    def match_paths(self, patterns, dirs):
+        """
+        Given a list of patterns and path parts, this tries to match
+        the first pattern with the first path. If there's only one
+        pattern, it adds the extra condition that there must be only one
+        path - this is so that the last pattern in a recipe will only
+        match a file, not a directory
+        """
+        m = patterns[0].match(dirs[0])
+        if m is not None:
+            if len(patterns) > 1:
+                return m
+            if len(dirs) == 1:
+                return m
+        return None
 
     def read_dicom(self, file):
         """
