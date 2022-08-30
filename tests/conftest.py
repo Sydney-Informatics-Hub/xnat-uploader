@@ -9,7 +9,7 @@ def test_files():
     fixtures_dir = Path("tests") / "fixtures"
     return {
         "config_excel": fixtures_dir / "template.xlsx",
-        "config": fixtures_dir / "recipe-xnat.json",
+        "config": fixtures_dir / "config.json",
         "source": fixtures_dir / "source",
         "log": fixtures_dir / "scanned.xlsx",
     }
@@ -24,7 +24,15 @@ def xnat_project():
     xnat4tests.stop_xnat()
 
 
-@pytest.fixture(scope="module", params=["basic", "one_glob", "multi_glob"])
+@pytest.fixture(
+    scope="module",
+    params=[
+        "basic",
+        "one_glob",
+        "multi_glob",
+        "multi_glob_lookahead",
+    ],
+)
 def matcher_case(request):
     MAPPINGS = {
         "Subject": ["ID"],
@@ -78,7 +86,7 @@ def matcher_case(request):
                     },
                 },
                 {
-                    "path": "JoeBlow-12345/20120301/test.dcm",
+                    "path": "JoeBlow-12345/20120301/ignoreOne/test.dcm",
                     "values": {
                         "SubjectName": "JoeBlow",
                         "ID": "12345",
@@ -88,7 +96,33 @@ def matcher_case(request):
                 },
             ],
             "bad_paths": [
-                "JoeBlow-12345/201201/test.dcm",
+                "JoeBlow-12345/20120301/test.dcm",
+            ],
+        },
+        "multi_glob_lookahead": {
+            "patterns": ["{SubjectName}-{ID}", "**", "{DDDDDDDD}", "{Filename}"],
+            "paths": [
+                {
+                    "path": "JoeBlow-12345/ignoreMe/ignore_Me_too/20120301/test.dcm",
+                    "values": {
+                        "SubjectName": "JoeBlow",
+                        "ID": "12345",
+                        "DDDDDDDD": "20120301",
+                        "Filename": "test.dcm",
+                    },
+                },
+                {
+                    "path": "JoeBlow-12345/ignoreOne/20120301/test.dcm",
+                    "values": {
+                        "SubjectName": "JoeBlow",
+                        "ID": "12345",
+                        "DDDDDDDD": "20120301",
+                        "Filename": "test.dcm",
+                    },
+                },
+            ],
+            "bad_paths": [
+                "JoeBlow-12345/20120301/test.dcm",
             ],
         },
     }

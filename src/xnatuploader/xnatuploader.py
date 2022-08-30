@@ -3,8 +3,6 @@
 import argparse
 import logging
 import sys
-import os
-import contextlib
 from tqdm import tqdm
 from pathlib import Path
 import xnatutils
@@ -37,7 +35,9 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
     matched = 0
     unmatched = 0
     logger.info("Preparing file list")
-    files = [f for f in root.glob("**/*") if f.is_file() and f.name not in IGNORE_FILES]
+    files = sorted(
+        [f for f in root.glob("**/*") if f.is_file() and f.name not in IGNORE_FILES]
+    )
     logger.info(f"Scanning directory {root}")
     for file in tqdm(files):
         if file.is_file():
@@ -98,25 +98,25 @@ Excel. Try closing the spreadsheet and running the script again.
 """
         )
         sys.exit()
-    for session_label, upload in tqdm(uploads.items()):
+    for session_label, upload in uploads.items():  # tqdm level one
         error = None
         logger.debug(f"Uploading to {session_label}")
         if test:
             upload.log(logger)
         else:
-            try:
-                with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
-                    upload.upload(xnat_session, project, overwrite)
-            except Exception as e:
-                logger.warning(f"Upload to  {session_label} failed: {e}")
-                error = str(e)
+
+            upload.start_upload(xnat_session, project)
             for file in upload.files:
-                if error:
+                logger.debug(f"Uploading {file.file}")
+                try:
+                    status = upload.upload([file], overwrite=overwrite)
+                    file.status = status[file.file]
+                except Exception as e:
+                    logger.warning(f"Upload {file.file} to {session_label} failed: {e}")
+                    error = str(e)
                     file.status = f"Error: {error}"
-                else:
-                    file.status = "success"
                 ws.append(file.columns)
-            wb.save(spreadsheet)
+                wb.save(spreadsheet)
 
 
 def collate_uploads(project_id, files):

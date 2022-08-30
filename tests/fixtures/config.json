@@ -1,17 +1,27 @@
 {
-	"Patterns": {
-		"Scans": [
-			"{SubjectName}-{SubjectId}",
-			"{YYYY}{MM}{DD}-{Label}.dcm"
-		]
-	},
-	"Mappings": {
-		"Subject": [ "SubjectId" ],
-		"Session": [ "YYYY", "MM","DD" ],
-		"Dataset": [ "Label" ]
-	},
-	"XNAT": {
-		"Server": "https://localhost:8080",
-		"Project": "Test01"
-	}
+  "paths": {
+    "Scans": [
+      "{SubjectName}-{ID}",
+      "{YYYY}{MM}{DD}",
+      "{Label}",
+      "{filename}.dcm"
+    ]
+  },
+  "mappings": {
+    "Subject": [
+      "ID"
+    ],
+    "Session": [
+      "YYYY",
+      "MM",
+      "DD"
+    ],
+    "Dataset": [
+      "Label"
+    ]
+  },
+  "xnat": {
+    "Project": "Test01",
+    "Server": "https://localhost:8080"
+  }
 }
