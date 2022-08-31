@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import csv
 import logging
 import sys
 import os
@@ -66,6 +67,8 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
     Load an Excel spreadsheet created with scan and upload the files which the user
     has marked for upload, and which haven't been uploaded yet. Keeps track of
     successful uploads in the "status" column.
+
+    Progress is written out to a temporary csv file.
     ---
     xnat_session: an XnatPy session, as returned by xnatutils.base.connect
     matcher: a Matcher
@@ -98,25 +101,30 @@ Excel. Try closing the spreadsheet and running the script again.
 """
         )
         sys.exit()
-    for session_label, upload in tqdm(uploads.items()):
-        error = None
-        logger.debug(f"Uploading to {session_label}")
-        if test:
-            upload.log(logger)
-        else:
-            try:
-                with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
-                    upload.upload(xnat_session, project, overwrite)
-            except Exception as e:
-                logger.warning(f"Upload to  {session_label} failed: {e}")
-                error = str(e)
-            for file in upload.files:
-                if error:
-                    file.status = f"Error: {error}"
-                else:
-                    file.status = "success"
-                ws.append(file.columns)
-            wb.save(spreadsheet)
+    csvout = get_csv_filename(spreadsheet)
+    with open(csvout, "w", newline="") as cfh:
+        csvw = csv.writer(cfh)
+        for session_label, upload in tqdm(uploads.items()):
+            error = None
+            logger.debug(f"Uploading to {session_label}")
+            if test:
+                upload.log(logger)
+            else:
+                try:
+                    with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+                        upload.upload(xnat_session, project, overwrite)
+                except KeyboardInterrupt:
+                    raise KeyboardInterrupt
+                except Exception as e:
+                    logger.warning(f"Upload to  {session_label} failed: {e}")
+                    error = str(e)
+                for file in upload.files:
+                    if error:
+                        file.status = f"Error: {error}"
+                    else:
+                        file.status = "success"
+                csvw.writerow(file.columns)
+    logger.info(f"Saved progress to {csvout}")
 
 
 def collate_uploads(project_id, files):
@@ -159,6 +167,15 @@ def collate_uploads(project_id, files):
                 )
             uploads[session_label].add_file(file)
     return uploads
+
+
+def get_csv_filename(spreadsheet):
+    csv = spreadsheet.with_suffix(".csv")
+    n = 0
+    parent = spreadsheet.parent()
+    while csv.is_file():
+        n += 1
+        csv = parent / Path(spreadsheet.stem() + f".{n}.csv")
 
 
 def show_help():
