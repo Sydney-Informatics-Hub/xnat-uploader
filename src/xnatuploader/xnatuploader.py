@@ -3,9 +3,6 @@
 import argparse
 import csv
 import logging
-import sys
-import os
-import contextlib
 from tqdm import tqdm
 from pathlib import Path
 import xnatutils
@@ -38,7 +35,9 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
     matched = 0
     unmatched = 0
     logger.info("Preparing file list")
-    files = [f for f in root.glob("**/*") if f.is_file() and f.name not in IGNORE_FILES]
+    files = sorted(
+        [f for f in root.glob("**/*") if f.is_file() and f.name not in IGNORE_FILES]
+    )
     logger.info(f"Scanning directory {root}")
     for file in tqdm(files):
         if file.is_file():
@@ -87,44 +86,54 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
     uploads = collate_uploads(project, files)
-    ws = add_filesheet(wb, matcher)
-    try:
-        wb.save(spreadsheet)
-    except PermissionError:
-        logger.error(
-            f"""
-Upload cancelled because a permissions error prevented the script from writing
-to {spreadsheet}.
-
-If you are on Windows, this may be because you have the spreadsheet open in
-Excel. Try closing the spreadsheet and running the script again.
-"""
-        )
-        sys.exit()
     csvout = get_csv_filename(spreadsheet)
     with open(csvout, "w", newline="") as cfh:
         csvw = csv.writer(cfh)
-        for session_label, upload in tqdm(uploads.items()):
+        for session_label, upload in tqdm(uploads.items()):  # tqdm level one
             error = None
             logger.debug(f"Uploading to {session_label}")
             if test:
                 upload.log(logger)
             else:
-                try:
-                    with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
-                        upload.upload(xnat_session, project, overwrite)
-                except KeyboardInterrupt:
-                    raise KeyboardInterrupt
-                except Exception as e:
-                    logger.warning(f"Upload to  {session_label} failed: {e}")
-                    error = str(e)
-                for file in upload.files:
-                    if error:
+                upload.start_upload(xnat_session, project)
+                for file in tqdm(upload.files):
+                    logger.debug(f"Uploading {file.file}")
+                    try:
+                        status = upload.upload([file], overwrite=overwrite)
+                        file.status = status[file.file]
+                    except Exception as e:
+                        logger.warning(
+                            f"Upload {file.file} to {session_label} failed: {e}"
+                        )
+                        error = str(e)
                         file.status = f"Error: {error}"
-                    else:
-                        file.status = "success"
-                csvw.writerow(file.columns)
-    logger.info(f"Saved progress to {csvout}")
+                    csvw.writerow(file.columns)
+    copy_csv_to_spreadsheet(matcher, csvout, spreadsheet)
+
+
+def copy_csv_to_spreadsheet(matcher, csvout, spreadsheet):
+    """Copies the csv of uploaded files to the Files worksheet of the
+    spreadsheet. If it can't, tells the user that the results are in the csv
+    file
+    """
+    wb = load_workbook(spreadsheet)
+    ws = add_filesheet(wb, matcher)
+    logger.wraning(f"Copying upload results from {csvout} to {spreadsheet}")
+    with open(csvout, "r") as cfh:
+        for row in csv.reader(cfh):
+            ws.append(row)
+    try:
+        wb.save(spreadsheet)
+    except PermissionError:
+        logger.error(
+            f"""
+A permissions error prevented the script from writing the upload results back
+to {spreadsheet}.  If you are on Windows, this may be because you still have
+the spreadsheet open in Excel.
+
+The results are available as a CSV file: {csvout}
+"""
+        )
 
 
 def collate_uploads(project_id, files):

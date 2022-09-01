@@ -1,26 +1,15 @@
-import sys
-import os.path
 import hashlib
-from xnat.exceptions import XNATResponseError
 from xnatutils.base import (
     sanitize_re,
     illegal_scan_chars_re,
     get_resource_name,
     session_modality_re,
     connect,
-    base_parser,
-    add_default_args,
-    print_response_error,
-    print_usage_error,
-    print_info_message,
-    set_logger,
 )
 from xnatutils.exceptions import (
     XnatUtilsUsageError,
     XnatUtilsError,
     XnatUtilsDigestCheckFailedError,
-    XnatUtilsDigestCheckError,
-    XnatUtilsException,
     XnatUtilsNoMatchingSessionsException,
 )
 
@@ -29,7 +18,7 @@ HASH_CHUNK_SIZE = 2**20
 # My version of put with session and scan class fix
 
 
-def put(session, scan, *filenames, **kwargs):
+def resource(session, scan, *filenames, **kwargs):
     """
     Uploads datasets to an XNAT instance project (requires manager privileges for the
     project).
@@ -98,7 +87,6 @@ def put(session, scan, *filenames, **kwargs):
         located at $HOME/.netrc
     """
     # Set defaults for kwargs
-    overwrite = kwargs.pop("overwrite", False)
     create_session = kwargs.pop(
         "create_session",
         False,
@@ -108,26 +96,6 @@ def put(session, scan, *filenames, **kwargs):
     subject_id = kwargs.pop("subject_id", None)
     scan_id = kwargs.pop("scan_id", None)
     modality = kwargs.pop("modality", None)
-    # If a single directory is provided, upload all files in it that
-    # don't start with '.'
-    if len(filenames) == 1 and isinstance(filenames[0], (list, tuple)):
-        filenames = filenames[0]
-    if len(filenames) == 1 and os.path.isdir(filenames[0]):
-        base_dir = filenames[0]
-        filenames = [
-            os.path.join(base_dir, f)
-            for f in os.listdir(base_dir)
-            if not f.startswith(".")
-        ]
-    else:
-        # Check filenames exist
-        if not filenames:
-            raise XnatUtilsUsageError("No filenames provided to upload")
-        for fname in filenames:
-            if not os.path.exists(fname):
-                raise XnatUtilsUsageError(
-                    "The file to upload, '{}', does not exist".format(fname)
-                )
     if sanitize_re.match(session):
         raise XnatUtilsUsageError(
             "Session '{}' is not a valid session name (must only contain "
@@ -194,34 +162,17 @@ def put(session, scan, *filenames, **kwargs):
         xdataset = scan_cls(
             id=(scan_id if scan_id is not None else scan), type=scan, parent=xsession
         )
-        if overwrite:
-            try:
-                xdataset.resources[resource_name].delete()
-                print(
-                    "Deleted existing resource at {}:{}/{}".format(
-                        session, scan, resource_name
-                    )
-                )
-            except KeyError:
-                pass
-        resource = xdataset.create_resource(resource_name)
-        for fname in filenames:
-            resource.upload(fname, os.path.basename(fname))
-            print("{} uploaded to {}:{}".format(fname, session, scan))
-        print("Uploaded files, checking digests...")
-        # Check uploaded files checksums
-        remote_digests = get_digests(resource)
-        for fname in filenames:
-            remote_digest = remote_digests[os.path.basename(fname).replace(" ", "%20")]
-            local_digest = calculate_checksum(fname)
-            if local_digest != remote_digest:
-                raise XnatUtilsDigestCheckError(
-                    "Remote digest does not match local ({} vs {}) "
-                    "for {}. Please upload your datasets again".format(
-                        remote_digest, local_digest, fname
-                    )
-                )
-            print("Successfully checked digest for {}".format(fname))
+        resource = None
+        # get the existing resource, if there is one
+        # this means that we can reconnect to a resource and add files to it
+        # after being interrupted
+        try:
+            resource = xdataset.resources[resource_name]
+        except KeyError:
+            resource = xdataset.create_resource(resource_name)
+
+        print(f"Returning resource {resource}")
+        return resource
 
 
 def get_xnat_classes(login, modality):
@@ -277,105 +228,3 @@ def get_digests(resource):
             "may have been uploaded but cannot check checksums".format(resource.id)
         )
     return dict((r["Name"], r["digest"]) for r in result.json()["ResultSet"]["Result"])
-
-
-description = """
-Uploads datasets to an XNAT instance project (requires manager privileges for the
-project).
-
-The format of the uploaded file is guessed from the file extension (recognised
-extensions are '.nii', '.nii.gz', '.mif'), the scan entry is created in the
-session and if '--create_session' option is passed the subject and session are
-created if they are not already present, e.g.
-
-    $ xnat-put TEST001_001_MR01 a_dataset --create_session test.nii.gz
-
-NB: If the scan already exists the '--overwrite' option must be provided to
-overwrite it.
-
-User credentials can be stored in a ~/.netrc file so that they don't need to be
-entered each time a command is run. If a new user provided or netrc doesn't
-exist the tool will ask whether to create a ~/.netrc file with the given
-credentials.
-"""
-
-
-def parser():
-    parser = base_parser(description)
-    parser.add_argument(
-        "session", type=str, help="Name of the session to upload the dataset to"
-    )
-    parser.add_argument("scan", type=str, help="Name for the dataset on XNAT")
-    parser.add_argument(
-        "filenames",
-        type=str,
-        nargs="+",
-        help="Filename(s) of the dataset to upload to XNAT",
-    )
-    parser.add_argument(
-        "--overwrite",
-        "-o",
-        action="store_true",
-        default=False,
-        help="Allow overwrite of existing dataset",
-    )
-    parser.add_argument(
-        "--create_session",
-        "-c",
-        action="store_true",
-        default=False,
-        help=("Create the required session on XNAT to upload " "the the dataset to"),
-    )
-    parser.add_argument(
-        "--resource_name",
-        "-r",
-        type=str,
-        default=None,
-        help=(
-            "The name of the resource (the data format) to "
-            "upload the dataset to. If not provided the "
-            "format will be determined from the file "
-            "extension (i.e. in most cases it won't be "
-            "necessary to specify"
-        ),
-    )
-    parser.add_argument(
-        "--project_id", "-p", help="Provide the project ID if session doesn't exist"
-    )
-    parser.add_argument(
-        "--subject_id", "-b", help="Provide the subject ID if session doesn't exist"
-    )
-    parser.add_argument(
-        "--scan_id", type=str, help="Provide the scan ID (defaults to the scan type)"
-    )
-    add_default_args(parser)
-    return parser
-
-
-def cmd(argv=sys.argv[1:]):
-
-    args = parser().parse_args(argv)
-
-    set_logger(args.loglevel)
-
-    try:
-        put(
-            args.session,
-            args.scan,
-            *args.filenames,
-            overwrite=args.overwrite,
-            create_session=args.create_session,
-            resource_name=args.resource_name,
-            project_id=args.project_id,
-            subject_id=args.subject_id,
-            scan_id=args.scan_id,
-            user=args.user,
-            server=args.server,
-            use_netrc=(not args.no_netrc)
-        )
-    except XnatUtilsUsageError as e:
-        print_usage_error(e)
-    except XNATResponseError as e:
-        print_response_error(e)
-    except XnatUtilsException as e:
-        print_info_message(e)
