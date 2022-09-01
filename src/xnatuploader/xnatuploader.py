@@ -118,7 +118,7 @@ def copy_csv_to_spreadsheet(matcher, csvout, spreadsheet):
     """
     wb = load_workbook(spreadsheet)
     ws = add_filesheet(wb, matcher)
-    logger.warning(f"Copying upload results from {csvout} to {spreadsheet}")
+    logger.debug(f"Copying upload results from {csvout} to {spreadsheet}")
     with open(csvout, "r") as cfh:
         for row in csv.reader(cfh):
             ws.append(row)
