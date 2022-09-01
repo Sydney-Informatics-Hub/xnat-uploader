@@ -15,6 +15,37 @@ def test_files():
     }
 
 
+@pytest.fixture
+def uploads_dict():
+    source_dir = Path("tests") / "fixtures/source"
+    return {
+        "project": "Project",
+        "uploads": {
+            "Project_002304_CT1:Chest_CT": [
+                str(source_dir / "DOE^JOHN-002304/20200312/Chest CT/scan1.dcm"),
+            ],
+            "Project_002304_CT1:Head_CT": [
+                str(source_dir / "DOE^JOHN-002304/20200312/Head CT/scan1.dcm"),
+                str(source_dir / "DOE^JOHN-002304/20200312/Head CT/scan2.dcm"),
+            ],
+            "Project_397829_CT1:Dataset": [
+                str(source_dir / "ROE^JANE-397829/20190115/Dataset/20190115-scan1.dcm"),
+            ],
+            "Project_397829_CT2:Dataset": [
+                str(source_dir / "ROE^JANE-397829/20200623/Dataset/20200623-scan1.dcm"),
+            ],
+            "Project_397829_CT3:Dataset": [
+                str(source_dir / "ROE^JANE-397829/20210414/Dataset/20210414-scan1.dcm"),
+            ],
+            "Project_038945_CT1:X-Rays": [
+                str(
+                    source_dir / "Smith^John-038945/20200303/X-Rays/20200303-scan1.dcm"
+                ),
+            ],
+        },
+    }
+
+
 @pytest.fixture(scope="session")
 def xnat_project():
     xnat4tests.launch_xnat()

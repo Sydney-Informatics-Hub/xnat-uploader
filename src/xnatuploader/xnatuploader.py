@@ -91,7 +91,7 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
         csvw = csv.writer(cfh)
         for session_label, upload in tqdm(uploads.items()):  # tqdm level one
             error = None
-            logger.debug(f"Uploading to {session_label}")
+            logger.debug(f"Uploading {session_label}")
             if test:
                 upload.log(logger)
             else:
@@ -138,9 +138,9 @@ The results are available as a CSV file: {csvout}
 
 def collate_uploads(project_id, files):
     """
-    Takes a list of files and collates them by subject (patient) and visit
-    index (starting from the earliest). Returns a dict of Upload objects
-    keyed by session labels.
+    Takes a list of files and collates them by subject (patient), visit
+    index (starting from the earliest) and scan type, returning a dictionary
+    of Uploads keyed by {session_label}_{scan}
     ---
     project_id: str
     files: list of FileMatch
@@ -167,14 +167,16 @@ def collate_uploads(project_id, files):
             modality = file.modality
             session_label = f"{project_id}_{subject_id}_{modality}{visit}"
             file.session_label = session_label
-            if session_label not in uploads:
-                uploads[session_label] = Upload(
+            scan_type = file.dataset
+            session_scan = f"{session_label}:{scan_type}"
+            if session_scan not in uploads:
+                uploads[session_scan] = Upload(
                     session_label,
                     subject_id,
                     modality,
                     file.dataset,
                 )
-            uploads[session_label].add_file(file)
+            uploads[session_scan].add_file(file)
     return uploads
 
 
