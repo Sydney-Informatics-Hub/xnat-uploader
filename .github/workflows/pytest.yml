@@ -1,0 +1,32 @@
+
+
+name: xnatuploader package tests
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+
+on:
+  push:
+    branches: 
+      - main
+  pull_request:
+    branches: 
+      - '**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.10.5]
+    steps:
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/checkout@v2
+      - name: Install
+        run: |
+          pip install .[test]
+          rm -r build
+      - name: Test
+        run: pytest 

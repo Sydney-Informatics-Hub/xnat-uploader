@@ -153,7 +153,6 @@ def resource(session, scan, *filenames, **kwargs):
                 # exist
                 xsubject = login.classes.SubjectData(label=subject_id, parent=xproject)
                 xsession = session_cls(label=session, parent=xsubject)
-                print("{} session successfully created.".format(xsession.label))
             else:
                 raise XnatUtilsNoMatchingSessionsException(
                     "'{}' session does not exist, to automatically create it "
@@ -170,8 +169,6 @@ def resource(session, scan, *filenames, **kwargs):
             resource = xdataset.resources[resource_name]
         except KeyError:
             resource = xdataset.create_resource(resource_name)
-
-        print(f"Returning resource {resource}")
         return resource
 
 
