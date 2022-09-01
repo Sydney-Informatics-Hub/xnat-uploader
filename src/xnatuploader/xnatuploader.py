@@ -118,7 +118,7 @@ def copy_csv_to_spreadsheet(matcher, csvout, spreadsheet):
     """
     wb = load_workbook(spreadsheet)
     ws = add_filesheet(wb, matcher)
-    logger.wraning(f"Copying upload results from {csvout} to {spreadsheet}")
+    logger.warning(f"Copying upload results from {csvout} to {spreadsheet}")
     with open(csvout, "r") as cfh:
         for row in csv.reader(cfh):
             ws.append(row)
@@ -181,10 +181,10 @@ def collate_uploads(project_id, files):
 def get_csv_filename(spreadsheet):
     csv = spreadsheet.with_suffix(".csv")
     n = 0
-    parent = spreadsheet.parent()
     while csv.is_file():
         n += 1
-        csv = parent / Path(spreadsheet.stem() + f".{n}.csv")
+        csv = spreadsheet.parent / Path(f"{spreadsheet.stem}.{n}.csv")
+    return csv
 
 
 def show_help():
