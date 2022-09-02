@@ -15,8 +15,8 @@ def assert_worksheets_equal(expect, got):
 
 
 def test_scan(tmp_path, test_files):
-    config_json = load_config(test_files["config_excel"])
-    matcher = Matcher(config_json)
+    config = load_config(test_files["config_excel"])
+    matcher = Matcher(config)
     log = tmp_path / "log.xlsx"
     new_workbook(log)
     scan(matcher, Path(test_files["source"]), log)

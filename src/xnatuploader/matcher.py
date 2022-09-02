@@ -22,10 +22,14 @@ class Matcher:
     to the parameters captured in the recipes)
     """
 
-    def __init__(self, config):
+    def __init__(self, config, loglevel="WARNING"):
         """
         config: dict with "paths" and "mappings"
         """
+        logger.setLevel(logging.DEBUG)
+        logch = logging.StreamHandler()
+        logch.setLevel(loglevel.upper())
+        logger.addHandler(logch)
         self.parse_recipes(config["paths"])
         self.mappings = config["mappings"]
         self._headers = None
@@ -44,7 +48,14 @@ class Matcher:
     @property
     def headers(self):
         if self._headers is None:
-            self._headers = ["Pattern", "File", "Upload", "Status", "SessionLabel"]
+            self._headers = [
+                "Pattern",
+                "File",
+                "Filename",
+                "Upload",
+                "Status",
+                "SessionLabel",
+            ]
             self._headers += XNAT_HIERARCHY + self.dicom_params + self.params
         return self._headers
 
@@ -147,21 +158,6 @@ class Matcher:
             params.append(param)
         return params, re.compile(regexp)
 
-    def match_path(self, filepath):
-        """
-        Try to match a filepath against each of the recipes and return the label
-        and values for the first one which matches.
-        ---
-        file: pathlib.Path
-
-        returns: { str: str }
-        """
-        for label, recipes in self.recipes.items():
-            values = self.match_recipe(recipes, filepath)
-            if values:
-                return label, values
-        return None, None
-
     def match(self, root, filepath):
         """
         Calls match_path to get values from the filepath, and then tries to
@@ -175,8 +171,10 @@ class Matcher:
         """
         label, values = self.match_path(filepath.relative_to(root))
         if label:
+            logger.debug("> reading DICOM metadata")
             dicom_values = self.read_dicom(filepath)
             if dicom_values is None:
+                logger.warning("> couldn't read DICOM metadata ")
                 match = FileMatch(self, filepath, None)
                 match.status = "No DICOM metadata"
                 return match
@@ -195,9 +193,11 @@ class Matcher:
         match.values = path_values
         match.dicom_values = dicom_values
         try:
+            logger.debug("> mapping DICOM and path values to XNAT params")
             match.xnat_params = self.map_values(path_values, dicom_values)
             match.success = True
-        except ValueError:
+        except ValueError as e:
+            logger.warning(f"> xnat params error: {e}")
             match.success = False
             match.status = "unmatched"
         match.selected = match.success
@@ -212,60 +212,101 @@ class Matcher:
         match.from_row(row)
         return match
 
+    def match_path(self, filepath):
+        """
+        Try to match a filepath against each of the recipes and return the label
+        and values for the first one which matches.
+        ---
+        file: pathlib.Path
+
+        returns: { str: str }
+        """
+        logger.debug(f"Trying to match {filepath}")
+        for label, recipes in self.recipes.items():
+            logger.debug(f"> pattern: {label}")
+            values = self.match_recipe(recipes, filepath)
+            if values:
+                logger.debug(f"> successful path match for {label}")
+                return label, values
+        return None, None
+
     def match_recipe(self, patterns, path):
         """
-        Attempt to match a pathlib.Path against a list of recipe patterns,
-        returning the collected values if successful.
+        Matches a list of patterns against a pathlib.Path, returning None if
+        no match was possible, or a dict of captured values.
 
-        The list of n recipes is matched against the last n parts of the path. For
-        example, a recipe list equivalent to
+        Matching starts from the beginning and works down the subdirectories
+        by the following rules:
 
-        [ "{YYYY}-{MM}-{DD}", "{FILENAME}.txt" ]
+        - if the next subdir matches the next pattern, capture any values and
+          move to the next subdir and pattern
 
-        would successfully match the path
+        - if the pattern is "*", match it against any subdir and keep going
 
-        "root" / "subdir" / "2022-05-24" / "myfile.txt"
+        - if the pattern is "**", match it against one or more subdirs until
+          the rest of the path matches the rest of the patterns (a
+          "non-greedy" match in regexp terms)
 
-        and return a dictionary with values for YYYY, MM, DD and FILENAME.
+        Both "*" and "**" must match against at least one subdir.
 
-        If any recipes have overlapping parameters, the last value parse overwrites
-        previous values.
-
-        Values matching numeric patterns are not converted into numeric types.
         ---
-        recipes: list of re.Pattern
+        patterns: list of re.Pattern
         path: pathlib.Path
 
         Returns: None, or dict of { str: str }
         """
         dirs = list(path.parts)
         matchpatterns = patterns[:]
-        values = {}
-        while matchpatterns and dirs:
-            pattern = matchpatterns[0]
-            if pattern == "*":
-                matchpatterns.pop(0)
-                dirs.pop(0)
-            elif pattern == "**":
-                if len(matchpatterns) > 1:
-                    if self.match_paths(matchpatterns[1:], dirs):
-                        # if the next directory matches the next pattern,
-                        # stop this '**'
-                        matchpatterns.pop(0)
-                    else:
-                        # otherwise, keep chasing the **
-                        dirs.pop(0)
-                else:
-                    raise RecipeException("** at end of pattern")
+        values = self.match_recipe_r(matchpatterns, dirs)
+        return values
+
+    def match_recipe_r(self, patterns, dirs):
+        """The recursive part of match_recipe. Checks if the head of patterns
+        matches the head of dirs, returning None if there's no match or either
+        patterns or dirs is exhausted early, and adds any captured values to
+        values captured further down the list. Uses lookahead on '**' to see
+        if the rest of the pattern after this dir matches. Won't be efficient
+        on very deep hierarchies because of this.
+
+        patterns: list of re.Pattern
+        path: list of str
+
+        Returns: None, or dict of { str: str }
+        """
+
+        if not patterns:
+            if dirs:
+                logger.debug(">> ran out of patterns before end of path")
+                return None
             else:
-                m = self.match_paths(matchpatterns, dirs)
-                if not m:
-                    return None
-                groups = m.groupdict()
-                for k, v in groups.items():
-                    values[k] = v
-                matchpatterns.pop(0)
-                dirs.pop(0)
+                return {}  # reached the end of both at the same time
+        if not dirs:
+            logger.debug(">> ran out of path before end of patterns")
+            return None
+        values = {}
+        tail_values = self.match_recipe_r(patterns[1:], dirs[1:])
+        if patterns[0] == "**":
+            logger.debug(f">> pattern ** / path {dirs[0]}")
+            if tail_values is not None:
+                logger.debug(">> Matched remainder of path")
+                return tail_values
+            logger.debug(">> moving to next path")
+            return self.match_recipe_r(patterns, dirs[1:])
+        if patterns[0] == "*":
+            logger.debug(f">> pattern * / path {dirs[0]}")
+            return tail_values
+        logger.debug(f">> pattern {patterns[0]} / path {dirs[0]}")
+        m = patterns[0].match(dirs[0])
+        if not m:
+            logger.debug(">> No match")
+            return None
+        values = m.groupdict()
+        if tail_values is None:
+            logger.debug(">> Match but no values")
+            return None
+        for k, v in tail_values.items():
+            values[k] = v
+            logger.debug(f">> Matched values {values}")
         return values
 
     def match_paths(self, patterns, dirs):
@@ -319,6 +360,7 @@ class Matcher:
                 if path_values[v] is None:
                     raise ValueError(f"value {v} is None")
             xnat_params[xnat_cat] = "".join([path_values[v] for v in path_vars])
+            xnat_params[xnat_cat] = xnat_params[xnat_cat].replace(" ", "_")
         return xnat_params
 
 
@@ -333,6 +375,9 @@ class FileMatch:
         self.matcher = matcher
         self.label = label
         self.file = str(file)
+        self.filename = None
+        if file is not None:
+            self.filename = file.name
         self.values = None
         self.dicom_values = None
         self.xnat_params = None
@@ -353,7 +398,7 @@ class FileMatch:
         """
         if self._columns is not None:
             return self._columns
-        self._columns = [self.label, self.file]
+        self._columns = [self.label, self.file, self.filename]
         if self.selected:
             self._columns += ["Y"]
         else:
@@ -386,16 +431,17 @@ class FileMatch:
         """
         self.label = row[0]
         self.file = row[1]
-        self.selected = row[2] == "Y"
-        self.status = row[3]
-        self.session_label = row[4]
+        self.filename = row[2]
+        self.selected = row[3] == "Y"
+        self.status = row[4]
+        self.session_label = row[5]
         self.xnat_params = {
-            "Subject": row[5],
-            "Session": row[6],
-            "Dataset": row[7],
+            "Subject": row[6],
+            "Session": row[7],
+            "Dataset": row[8],
         }
         self.dicom_values = {}
-        c = 8
+        c = 9
         for p in self.matcher.dicom_params:
             self.dicom_values[p] = row[c]
             c += 1

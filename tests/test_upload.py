@@ -26,7 +26,7 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
     new_workbook(log_scanned)
     scan(matcher, Path(test_files["source"]), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
-    upload(xnat_session, matcher, project.name, log_uploaded, overwrite=True)
+    upload(xnat_session, matcher, project.name, log_uploaded)
     # scanned_wb = load_workbook(log_scanned)
     # scanned_ws = scanned_wb["Files"]
     uploaded_wb = load_workbook(log_uploaded)
@@ -109,7 +109,7 @@ def test_missing_file(xnat_project, tmp_path, test_files):
                     ws.cell(i, 2).value = bad_file
 
     scanned_wb.save(log_uploaded)
-    upload(xnat_session, matcher, project.name, log_uploaded, overwrite=True)
+    upload(xnat_session, matcher, project.name, log_uploaded)
     uploads = {}
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
