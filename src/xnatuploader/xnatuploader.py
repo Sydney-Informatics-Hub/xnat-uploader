@@ -14,20 +14,25 @@ from xnatuploader.upload import Upload
 
 FILE_COLUMN_WIDTH = 50
 
+DEBUG_MAX = 10
+
 IGNORE_FILES = [".DS_Store"]
 
 logger = logging.getLogger(__name__)
 
 
-def scan(matcher, root, spreadsheet, include_unmatched=True):
+def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
     """
     Scan the filesystem under root for files which match recipes and write
     out the resulting values to a new worksheet in the spreadsheet.
+
+    If the debug flag is true, only try to match DEBUG_MAX files
     ---
     matcher: a PathMatcher
     root: pathlib.Path
     spreadsheet: pathlib.Path
-    include_unmatched: bool
+    include_unmatched: boolean
+    debug: boolean
     """
     logger.info(f"Loading {spreadsheet}")
     wb = load_workbook(spreadsheet)
@@ -38,6 +43,8 @@ def scan(matcher, root, spreadsheet, include_unmatched=True):
     files = sorted(
         [f for f in root.glob("**/*") if f.is_file() and f.name not in IGNORE_FILES]
     )
+    if debug:
+        files = files[:DEBUG_MAX]
     logger.info(f"Scanning directory {root}")
     for file in tqdm(files):
         if file.is_file():
@@ -254,6 +261,15 @@ def main():
     ap.add_argument("--project", type=str, help="XNAT project ID")
     ap.add_argument("--loglevel", type=str, default="info", help="Logging level")
     ap.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help=f"""
+Debug mode: only attempt to match {DEBUG_MAX} patterns and generates a lot of
+debug messages
+""",
+    )
+    ap.add_argument(
         "--logdir", type=Path, default="logs", help="Directory to write logs to"
     )
     ap.add_argument(
@@ -285,6 +301,10 @@ def main():
     if not args.logdir.is_dir():
         args.logdir.mkdir(parents=True)
 
+    loglevel = args.loglevel.upper()
+    if args.debug:
+        loglevel = "DEBUG"
+
     logger.setLevel(logging.DEBUG)
     logfh = logging.FileHandler(args.logdir / "xnatuploader.log")
     logfh.setLevel(args.loglevel.upper())
@@ -304,15 +324,21 @@ def main():
 
     config = load_config(args.spreadsheet)
 
-    matcher = Matcher(config)
+    matcher = Matcher(config, loglevel=loglevel)
 
     if args.operation == "scan":
-        scan(matcher, args.dir, args.spreadsheet, include_unmatched=args.unmatched)
+        scan(
+            matcher,
+            args.dir,
+            args.spreadsheet,
+            include_unmatched=args.unmatched,
+            debug=args.debug,
+        )
     else:
         server = opt_or_config(args, config["xnat"], "Server")
         project = opt_or_config(args, config["xnat"], "Project")
-        logger.warning(f"Server = {server}")
-        logger.warning(f"Project = {project}")
+        logger.debug(f"Server = {server}")
+        logger.debug(f"Project = {project}")
         xnat_session = xnatutils.base.connect(server)
         upload(
             xnat_session,
