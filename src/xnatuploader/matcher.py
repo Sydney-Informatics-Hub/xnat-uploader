@@ -26,7 +26,7 @@ class Matcher:
         """
         config: dict with "paths" and "mappings"
         """
-        logger.setLevel(logging.DEBUG)
+        logger.setLevel(loglevel)
         logch = logging.StreamHandler()
         logch.setLevel(loglevel.upper())
         logger.addHandler(logch)
