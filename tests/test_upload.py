@@ -1,30 +1,31 @@
 import xnatutils
 import shutil
 import json
+import pytest
 
 from openpyxl import load_workbook
 
 from pathlib import Path
+
 
 from xnatuploader.xnatuploader import scan, upload
 from xnatuploader.matcher import Matcher
 from xnatuploader.workbook import new_workbook
 
 
-FIXTURES_DIR = Path("tests/fixtures")
-DICOM = FIXTURES_DIR / "sample_dicoms" / "image-00000.dcm"
-
-
-def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
+@pytest.mark.parametrize("source_dir", ["basic", "bad_paths"])
+def test_upload_from_spreadsheet(source_dir, xnat_project, tmp_path, test_files):
     xnat_session, project = xnat_project
-    with open(test_files["config"], "r") as fh:
+    test_config = test_files[source_dir]["config"]
+    test_dir = test_files[source_dir]["dir"]
+    with open(test_config, "r") as fh:
         config_json = json.load(fh)
         matcher = Matcher(config_json)
     log_scanned = tmp_path / "log_scanned.xlsx"
     log_uploaded = tmp_path / "log_uploaded.xlsx"
     downloads = tmp_path / "downloads"
     new_workbook(log_scanned)
-    scan(matcher, Path(test_files["source"]), log_scanned)
+    scan(matcher, Path(test_dir), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
     upload(xnat_session, matcher, project.name, log_uploaded)
     # scanned_wb = load_workbook(log_scanned)
