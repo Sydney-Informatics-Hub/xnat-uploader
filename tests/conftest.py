@@ -9,7 +9,7 @@ def test_files():
     fixtures_dir = Path("tests") / "fixtures"
     return {
         "config_excel": fixtures_dir / "template.xlsx",
-        "test_files": {
+        "filesets": {
             "basic": {
                 "dir": fixtures_dir / "basic",
                 "config": fixtures_dir / "config_basic.json",
@@ -29,7 +29,7 @@ def xnat_project():
     xnat = xnat4tests.connect()
     project = xnat.classes.ProjectData(parent=xnat, name="Test001")
     yield xnat, project
-    # xnat4tests.stop_xnat()
+    xnat4tests.stop_xnat()
 
 
 @pytest.fixture(
