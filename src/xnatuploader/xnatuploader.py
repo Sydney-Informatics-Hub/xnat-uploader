@@ -125,7 +125,7 @@ def copy_csv_to_spreadsheet(matcher, csvout, spreadsheet):
     """
     wb = load_workbook(spreadsheet)
     ws = add_filesheet(wb, matcher)
-    logger.warning(f"Copying upload results from {csvout} to {spreadsheet}")
+    logger.debug(f"Copying upload results from {csvout} to {spreadsheet}")
     with open(csvout, "r") as cfh:
         for row in csv.reader(cfh):
             ws.append(row)
@@ -172,7 +172,7 @@ def collate_uploads(project_id, files):
         for file in files:
             visit = visits[file.study_date]
             modality = file.modality
-            session_label = f"{project_id}_{subject_id}_{modality}{visit}"
+            session_label = f"{subject_id}_{modality}{visit}"
             file.session_label = session_label
             if session_label not in uploads:
                 uploads[session_label] = Upload(
