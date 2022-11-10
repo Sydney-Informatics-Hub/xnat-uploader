@@ -2,8 +2,8 @@
   "paths": {
     "Scans": [
       "{SubjectName}-{ID}",
-      "{YYYY}{MM}{DD}",
-      "{Label}",
+      "**",
+      "{Directory}",
       "{filename}.dcm"
     ]
   },
@@ -12,12 +12,10 @@
       "ID"
     ],
     "Session": [
-      "YYYY",
-      "MM",
-      "DD"
+      "DICOM:StudyDate"
     ],
     "Dataset": [
-      "Label"
+      "Directory"
     ]
   },
   "xnat": {
