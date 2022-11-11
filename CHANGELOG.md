@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3]
+
+Features:
+
+- Progress bars
+- Wildcards are more flexible
+- DICOM metadata extraction can be configured in the spreadsheet
+- now tested with uploades of 1000+ scan files
+
+Bug fixes:
+
+- All files for a session were being stored in a single scan type
+- Spreadsheets were being corrupted when updated
+
 ## [0.0.2]
 
 Features:

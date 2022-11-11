@@ -1,0 +1,25 @@
+{
+  "paths": {
+    "Scans": [
+      "{SubjectName}-{ID}",
+      "**",
+      "{Directory}",
+      "{filename}.dcm"
+    ]
+  },
+  "mappings": {
+    "Subject": [
+      "ID"
+    ],
+    "Session": [
+      "DICOM:StudyDate"
+    ],
+    "Dataset": [
+      "Directory"
+    ]
+  },
+  "xnat": {
+    "Project": "Test01",
+    "Server": "https://localhost:8080"
+  }
+}
