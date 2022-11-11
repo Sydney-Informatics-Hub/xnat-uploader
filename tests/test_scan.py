@@ -18,23 +18,25 @@ def assert_worksheets_equal(expect, got):
 
 
 def test_scan(tmp_path, test_files):
-    config = load_config(test_files["config_excel"])
+    fileset = test_files["basic"]
+    config = load_config(fileset["config_excel"])
     matcher = Matcher(config)
     log = tmp_path / "log.xlsx"
     new_workbook(log)
-    scan(matcher, Path(test_files["source"]), log)
-    expect_wb = load_workbook(test_files["log"])
+    scan(matcher, Path(fileset["dir"]), log)
+    expect_wb = load_workbook(fileset["scanned_excel"])
     got_wb = load_workbook(log)
     assert "Files" in got_wb
     assert_worksheets_equal(expect_wb["Files"], got_wb["Files"])
 
 
 def test_collation(tmp_path, test_files, uploads_dict):
-    config = load_config(test_files["config_excel"])
+    fileset = test_files["basic"]
+    config = load_config(fileset["config_excel"])
     matcher = Matcher(config)
     log = tmp_path / "log.xlsx"
     new_workbook(log)
-    scan(matcher, Path(test_files["source"]), log)
+    scan(matcher, Path(fileset["dir"]), log)
     project_id = uploads_dict["project"]
     wb = load_workbook(log)
     ws = wb["Files"]

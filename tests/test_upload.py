@@ -16,8 +16,8 @@ from xnatuploader.workbook import new_workbook
 @pytest.mark.parametrize("source_dir", ["basic", "bad_paths"])
 def test_upload_from_spreadsheet(source_dir, xnat_project, tmp_path, test_files):
     xnat_session, project = xnat_project
-    test_config = test_files["filesets"][source_dir]["config"]
-    test_dir = test_files["filesets"][source_dir]["dir"]
+    test_config = test_files[source_dir]["config"]
+    test_dir = test_files[source_dir]["dir"]
     with open(test_config, "r") as fh:
         config_json = json.load(fh)
         matcher = Matcher(config_json)
@@ -86,7 +86,7 @@ def get_downloaded(session_download):
 
 def test_missing_file(xnat_project, tmp_path, test_files):
     xnat_session, project = xnat_project
-    basic = test_files["filesets"]["basic"]
+    basic = test_files["basic"]
     with open(basic["config"], "r") as fh:
         config_json = json.load(fh)
         matcher = Matcher(config_json)

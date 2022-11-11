@@ -8,18 +8,16 @@ from xnatuploader.matcher import Matcher
 def test_files():
     fixtures_dir = Path("tests") / "fixtures"
     return {
-        "config_excel": fixtures_dir / "template.xlsx",
-        "filesets": {
-            "basic": {
-                "dir": fixtures_dir / "basic",
-                "config": fixtures_dir / "config_basic.json",
-            },
-            "bad_paths": {
-                "dir": fixtures_dir / "bad_paths",
-                "config": fixtures_dir / "config_bad_paths.json",
-            },
+        "basic": {
+            "dir": fixtures_dir / "basic",
+            "config": fixtures_dir / "config_basic.json",
+            "config_excel": fixtures_dir / "basic_init.xlsx",
+            "scanned_excel": fixtures_dir / "basic_scanned.xlsx",
         },
-        "log": fixtures_dir / "scanned.xlsx",
+        "bad_paths": {
+            "dir": fixtures_dir / "bad_paths",
+            "config": fixtures_dir / "config_bad_paths.json",
+        },
     }
 
 
