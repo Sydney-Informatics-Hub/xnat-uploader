@@ -103,12 +103,8 @@ def resource(session, scan, *filenames, **kwargs):
             "alpha-numeric characters and underscores)".format(session)
         )
 
-    url_safe_scan = urllib.parse.quote(scan)
-
-    if my_illegal_scan_chars_re.search(url_safe_scan) is not None:
-        raise XnatUtilsUsageError(
-            "Scan name '{}' contains illegal characters".format(url_safe_scan)
-        )
+    scan = my_illegal_scan_chars_re.sub("_", scan)
+    scan = urllib.parse.quote(scan)
 
     if resource_name is None:
         if len(filenames) == 1:
@@ -164,7 +160,7 @@ def resource(session, scan, *filenames, **kwargs):
                 )
         xdataset = scan_cls(
             id=(scan_id if scan_id is not None else scan),
-            type=url_safe_scan,
+            type=scan,
             parent=xsession,
         )
         resource = None
