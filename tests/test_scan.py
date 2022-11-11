@@ -21,11 +21,11 @@ def test_scan(tmp_path, test_files):
     fileset = test_files["basic"]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(config)
-    log = tmp_path / "log.xlsx"
-    new_workbook(log)
-    scan(matcher, Path(fileset["dir"]), log)
+    scanned = tmp_path / "scanned.xlsx"
+    new_workbook(scanned)
+    scan(matcher, Path(fileset["dir"]), scanned, include_unmatched=True)
     expect_wb = load_workbook(fileset["scanned_excel"])
-    got_wb = load_workbook(log)
+    got_wb = load_workbook(scanned)
     assert "Files" in got_wb
     assert_worksheets_equal(expect_wb["Files"], got_wb["Files"])
 
