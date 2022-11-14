@@ -14,20 +14,23 @@ from xnatuploader.workbook import new_workbook
 
 
 @pytest.mark.parametrize("source_dir", ["basic", "bad_paths"])
-def test_upload_from_spreadsheet(source_dir, xnat_project, tmp_path, test_files):
-    xnat_session, project = xnat_project
+def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_files):
     test_config = test_files[source_dir]["config"]
     test_dir = test_files[source_dir]["dir"]
     with open(test_config, "r") as fh:
         config_json = json.load(fh)
         matcher = Matcher(config_json)
+    project = xnat_connection.classes.ProjectData(
+        parent=xnat_connection,
+        name="Test_" + source_dir,
+    )
     log_scanned = tmp_path / "log_scanned.xlsx"
     log_uploaded = tmp_path / "log_uploaded.xlsx"
     downloads = tmp_path / "downloads"
     new_workbook(log_scanned)
     scan(matcher, Path(test_dir), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
-    upload(xnat_session, matcher, project.name, log_uploaded)
+    upload(xnat_connection, matcher, project.name, log_uploaded)
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
     uploads = {}
@@ -61,7 +64,7 @@ def test_upload_from_spreadsheet(source_dir, xnat_project, tmp_path, test_files)
                 session_label,
                 downloads,
                 project_id=project.name,
-                connection=xnat_session,
+                connection=xnat_connection,
             )
             if session_label is not None:
                 downloaded = get_downloaded(downloads / session_label)
@@ -82,8 +85,11 @@ def get_downloaded(session_download):
     return files
 
 
-def test_missing_file(xnat_project, tmp_path, test_files):
-    xnat_session, project = xnat_project
+def test_missing_file(xnat_connection, tmp_path, test_files):
+    project = xnat_connection.classes.ProjectData(
+        parent=xnat_connection,
+        name="Test_missing",
+    )
     basic = test_files["basic"]
     with open(basic["config"], "r") as fh:
         config_json = json.load(fh)
@@ -109,7 +115,7 @@ def test_missing_file(xnat_project, tmp_path, test_files):
                     ws.cell(i, 2).value = bad_file
 
     scanned_wb.save(log_uploaded)
-    upload(xnat_session, matcher, project.name, log_uploaded)
+    upload(xnat_connection, matcher, project.name, log_uploaded)
     uploads = {}
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]

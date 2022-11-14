@@ -68,11 +68,10 @@ def uploads_dict():
 
 
 @pytest.fixture(scope="session")
-def xnat_project():
+def xnat_connection():
     xnat4tests.launch_xnat()
     xnat = xnat4tests.connect()
-    project = xnat.classes.ProjectData(parent=xnat, name="Test001")
-    yield xnat, project
+    yield xnat
     xnat4tests.stop_xnat()
 
 

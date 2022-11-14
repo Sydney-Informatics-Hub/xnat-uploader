@@ -20,6 +20,6 @@
   },
   "xnat": {
     "Project": "Test01",
-    "Server": "https://localhost:8080"
+    "Server": "http://localhost:8080"
   }
 }
