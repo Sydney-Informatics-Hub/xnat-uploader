@@ -74,11 +74,13 @@ class Upload:
             }
         status = {}
         for file in files:
-            xnat_filename = os.path.basename(file.file).replace(" ", "%20")
+            xnat_filename = os.path.basename(file.file)
             if xnat_filename not in digests:
                 status[
                     file.file
                 ] = f"File {file.file} {xnat_filename} not found in digests"
+                logger.error(status[file.file])
+                logger.error(digests)
             else:
                 remote_digest = digests[xnat_filename]
                 local_digest = xnatuploader.put.calculate_checksum(file.file)
