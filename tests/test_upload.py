@@ -28,8 +28,6 @@ def test_upload_from_spreadsheet(source_dir, xnat_project, tmp_path, test_files)
     scan(matcher, Path(test_dir), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
     upload(xnat_session, matcher, project.name, log_uploaded)
-    # scanned_wb = load_workbook(log_scanned)
-    # scanned_ws = scanned_wb["Files"]
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
     uploads = {}
