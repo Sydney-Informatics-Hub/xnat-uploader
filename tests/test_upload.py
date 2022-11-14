@@ -7,7 +7,6 @@ from openpyxl import load_workbook
 
 from pathlib import Path
 
-
 from xnatuploader.xnatuploader import scan, upload
 from xnatuploader.matcher import Matcher
 from xnatuploader.workbook import new_workbook
@@ -40,9 +39,6 @@ def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_fil
             if upload_row.selected:
                 uploads[upload_row.file] = upload_row
     expect = {}
-    # Originally was using scanned_ws for this, but that doesn't have
-    # session labels. A more honest test would recreate them or get them
-    # from the upload spreadsheet.
     for row in uploaded_ws.values:
         if row[0] != "Recipe":
             m = matcher.from_spreadsheet(row)
@@ -60,10 +56,14 @@ def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_fil
             for row in rows:
                 assert row.file in uploads
                 assert uploads[row.file].status == "success"
+            # Note: passing the subject_id in is required to get this to not
+            # break on the second set of test cases if they are being done in
+            # the same project
             xnatutils.get(
                 session_label,
                 downloads,
                 project_id=project.name,
+                subject_id=subject,
                 connection=xnat_connection,
             )
             if session_label is not None:
