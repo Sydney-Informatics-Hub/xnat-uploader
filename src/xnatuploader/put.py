@@ -16,7 +16,7 @@ from xnatutils.exceptions import (
 
 HASH_CHUNK_SIZE = 2**20
 
-my_illegal_scan_chars_re = re.compile(r"[\(\)\.]")
+scan_chars_unsafe_re = re.compile(r"[^a-zA-Z0-9_]")
 
 
 def resource(session, scan, *filenames, **kwargs):
@@ -103,7 +103,7 @@ def resource(session, scan, *filenames, **kwargs):
             "alpha-numeric characters and underscores)".format(session)
         )
 
-    scan = my_illegal_scan_chars_re.sub("_", scan)
+    scan = scan_chars_unsafe_re.sub("_", scan)
     scan = urllib.parse.quote(scan)
 
     if resource_name is None:
