@@ -1,7 +1,8 @@
 import hashlib
+import re
+import urllib.parse
 from xnatutils.base import (
     sanitize_re,
-    illegal_scan_chars_re,
     get_resource_name,
     session_modality_re,
     connect,
@@ -15,7 +16,7 @@ from xnatutils.exceptions import (
 
 HASH_CHUNK_SIZE = 2**20
 
-# My version of put with session and scan class fix
+my_illegal_scan_chars_re = re.compile(r"[\(\)\.]")
 
 
 def resource(session, scan, *filenames, **kwargs):
@@ -101,10 +102,9 @@ def resource(session, scan, *filenames, **kwargs):
             "Session '{}' is not a valid session name (must only contain "
             "alpha-numeric characters and underscores)".format(session)
         )
-    if illegal_scan_chars_re.search(scan) is not None:
-        raise XnatUtilsUsageError(
-            "Scan name '{}' contains illegal characters".format(scan)
-        )
+
+    scan = my_illegal_scan_chars_re.sub("_", scan)
+    scan = urllib.parse.quote(scan)
 
     if resource_name is None:
         if len(filenames) == 1:
@@ -159,7 +159,9 @@ def resource(session, scan, *filenames, **kwargs):
                     "please use '--create_session' option.".format(session)
                 )
         xdataset = scan_cls(
-            id=(scan_id if scan_id is not None else scan), type=scan, parent=xsession
+            id=(scan_id if scan_id is not None else scan),
+            type=scan,
+            parent=xsession,
         )
         resource = None
         # get the existing resource, if there is one

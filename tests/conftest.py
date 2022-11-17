@@ -8,19 +8,70 @@ from xnatuploader.matcher import Matcher
 def test_files():
     fixtures_dir = Path("tests") / "fixtures"
     return {
-        "config_excel": fixtures_dir / "template.xlsx",
-        "config": fixtures_dir / "config.json",
-        "source": fixtures_dir / "source",
-        "log": fixtures_dir / "scanned.xlsx",
+        "basic": {
+            "dir": fixtures_dir / "basic",
+            "config": fixtures_dir / "config_basic.json",
+            "config_excel": fixtures_dir / "basic_init.xlsx",
+            "scanned_excel": fixtures_dir / "basic_scanned.xlsx",
+        },
+        "bad_paths": {
+            "dir": fixtures_dir / "bad_paths",
+            "config": fixtures_dir / "config_bad_paths.json",
+        },
+    }
+
+
+@pytest.fixture
+def uploads_dict():
+    source_dir = Path("tests") / "fixtures/basic"
+    return {
+        "project": "Project",
+        "uploads": {
+            "002304_CT1:Head_CT": [
+                str(
+                    source_dir
+                    / "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00000.dcm"
+                ),
+                str(
+                    source_dir
+                    / "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00001.dcm"
+                ),
+            ],
+            "002304_CT1:Neck_CT": [
+                str(
+                    source_dir
+                    / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00000.dcm"
+                ),
+                str(
+                    source_dir
+                    / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00001.dcm"
+                ),
+                str(
+                    source_dir
+                    / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00002.dcm"
+                ),
+            ],
+            "397829_CT1:SomeCT": [
+                str(source_dir / "ROE^JANE-397829/20190115/SomeCT/img-00000.dcm"),
+            ],
+            "397829_CT2:SomeCT": [
+                str(source_dir / "ROE^JANE-397829/20200623/SomeCT/img-00000.dcm"),
+            ],
+            "397829_CT3:SomeCT": [
+                str(source_dir / "ROE^JANE-397829/20210414/SomeCT/image-00000.dcm"),
+            ],
+            "038945_CT1:X-Rays": [
+                str(source_dir / "Smith^John-038945/20200303/X-Rays/img-00000.dcm"),
+            ],
+        },
     }
 
 
 @pytest.fixture(scope="session")
-def xnat_project():
+def xnat_connection():
     xnat4tests.launch_xnat()
     xnat = xnat4tests.connect()
-    project = xnat.classes.ProjectData(parent=xnat, name="Test001")
-    yield xnat, project
+    yield xnat
     xnat4tests.stop_xnat()
 
 

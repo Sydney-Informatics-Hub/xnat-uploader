@@ -74,11 +74,13 @@ class Upload:
             }
         status = {}
         for file in files:
-            xnat_filename = os.path.basename(file.file).replace(" ", "%20")
+            xnat_filename = os.path.basename(file.file)
             if xnat_filename not in digests:
                 status[
                     file.file
                 ] = f"File {file.file} {xnat_filename} not found in digests"
+                logger.error(status[file.file])
+                logger.error(digests)
             else:
                 remote_digest = digests[xnat_filename]
                 local_digest = xnatuploader.put.calculate_checksum(file.file)
@@ -89,28 +91,6 @@ class Upload:
                 else:
                     status[file.file] = "success"
         return status
-
-    # def upload_all(self, xnat_session, project, overwrite=False):
-    #     """
-    #     Upload a file to XNAT
-    #     ---
-    #     xnat_session: an XnatPy session, as returned by xnatutils.base.connect
-    #     project: the XNAT project id to which we're uploading
-    #     overwrite: Boolean
-    #     """
-    #     xnatuploader.put.put(
-    #         self.session_label,
-    #         self.scan_type,
-    #         [file.file for file in self.files],
-    #         resource_name="DICOM",
-    #         project_id=project,
-    #         subject_id=self.subject,
-    #         modality=self.modality,
-    #         create_session=self.new_session,
-    #         connection=xnat_session,
-    #         overwrite=overwrite,
-    #     )
-    #     self.create_session = False  # don't try to recreate sessions
 
     def log(self, logger):
         """

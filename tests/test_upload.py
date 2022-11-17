@@ -1,6 +1,7 @@
 import xnatutils
 import shutil
 import json
+import pytest
 
 from openpyxl import load_workbook
 
@@ -11,24 +12,24 @@ from xnatuploader.matcher import Matcher
 from xnatuploader.workbook import new_workbook
 
 
-FIXTURES_DIR = Path("tests/fixtures")
-DICOM = FIXTURES_DIR / "sample_dicoms" / "image-00000.dcm"
-
-
-def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
-    xnat_session, project = xnat_project
-    with open(test_files["config"], "r") as fh:
+@pytest.mark.parametrize("source_dir", ["basic", "bad_paths"])
+def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_files):
+    test_config = test_files[source_dir]["config"]
+    test_dir = test_files[source_dir]["dir"]
+    with open(test_config, "r") as fh:
         config_json = json.load(fh)
         matcher = Matcher(config_json)
+    project = xnat_connection.classes.ProjectData(
+        parent=xnat_connection,
+        name="Test_" + source_dir,
+    )
     log_scanned = tmp_path / "log_scanned.xlsx"
     log_uploaded = tmp_path / "log_uploaded.xlsx"
     downloads = tmp_path / "downloads"
     new_workbook(log_scanned)
-    scan(matcher, Path(test_files["source"]), log_scanned)
+    scan(matcher, Path(test_dir), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
-    upload(xnat_session, matcher, project.name, log_uploaded)
-    # scanned_wb = load_workbook(log_scanned)
-    # scanned_ws = scanned_wb["Files"]
+    upload(xnat_connection, matcher, project.name, log_uploaded)
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
     uploads = {}
@@ -38,9 +39,6 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
             if upload_row.selected:
                 uploads[upload_row.file] = upload_row
     expect = {}
-    # Originally was using scanned_ws for this, but that doesn't have
-    # session labels. A more honest test would recreate them or get them
-    # from the upload spreadsheet.
     for row in uploaded_ws.values:
         if row[0] != "Recipe":
             m = matcher.from_spreadsheet(row)
@@ -58,11 +56,15 @@ def test_upload_from_spreadsheet(xnat_project, tmp_path, test_files):
             for row in rows:
                 assert row.file in uploads
                 assert uploads[row.file].status == "success"
+            # Note: passing the subject_id in is required to get this to not
+            # break on the second set of test cases if they are being done in
+            # the same project
             xnatutils.get(
                 session_label,
                 downloads,
                 project_id=project.name,
-                connection=xnat_session,
+                subject_id=subject,
+                connection=xnat_connection,
             )
             if session_label is not None:
                 downloaded = get_downloaded(downloads / session_label)
@@ -83,15 +85,19 @@ def get_downloaded(session_download):
     return files
 
 
-def test_missing_file(xnat_project, tmp_path, test_files):
-    xnat_session, project = xnat_project
-    with open(test_files["config"], "r") as fh:
+def test_missing_file(xnat_connection, tmp_path, test_files):
+    project = xnat_connection.classes.ProjectData(
+        parent=xnat_connection,
+        name="Test_missing",
+    )
+    basic = test_files["basic"]
+    with open(basic["config"], "r") as fh:
         config_json = json.load(fh)
         matcher = Matcher(config_json)
     log_scanned = tmp_path / "log_scanned.xlsx"
     log_uploaded = tmp_path / "log_uploaded.xlsx"
     new_workbook(log_scanned)
-    scan(matcher, Path(test_files["source"]), log_scanned)
+    scan(matcher, Path(basic["dir"]), log_scanned)
     scanned_wb = load_workbook(log_scanned)
     ws = scanned_wb["Files"]
     # change the third filename to trigger an error
@@ -109,7 +115,7 @@ def test_missing_file(xnat_project, tmp_path, test_files):
                     ws.cell(i, 2).value = bad_file
 
     scanned_wb.save(log_uploaded)
-    upload(xnat_session, matcher, project.name, log_uploaded)
+    upload(xnat_connection, matcher, project.name, log_uploaded)
     uploads = {}
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
