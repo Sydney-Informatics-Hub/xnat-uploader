@@ -102,19 +102,26 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
             if test:
                 upload.log(logger)
             else:
-                upload.start_upload(xnat_session, project)
-                for file in tqdm(upload.files):
-                    logger.debug(f"Uploading {file.file}")
-                    try:
-                        status = upload.upload([file], overwrite=overwrite)
-                        file.status = status[file.file]
-                    except Exception as e:
-                        logger.warning(
-                            f"Upload {file.file} to {session_label} failed: {e}"
-                        )
-                        error = str(e)
+                try:
+                    upload.start_upload(xnat_session, project)
+                    for file in tqdm(upload.files):  # tqdm level two
+                        logger.debug(f"Uploading {file.file}")
+                        try:
+                            status = upload.upload([file], overwrite=overwrite)
+                            file.status = status[file.file]
+                        except Exception as e:
+                            logger.warning(
+                                f"File upload {session_label} / {file.file} failed: {error}"
+                            )
+                            error = str(e)
+                            file.status = f"Error: {error}"
+                        csvw.writerow(file.columns)
+                except Exception as e:
+                    logger.warning(f"Dataset upload {session_label} failed: {e}")
+                    error = str(e)
+                    for file in upload.files:
                         file.status = f"Error: {error}"
-                    csvw.writerow(file.columns)
+                        csvw.writerow(file.columns)
     copy_csv_to_spreadsheet(matcher, csvout, spreadsheet)
 
 
