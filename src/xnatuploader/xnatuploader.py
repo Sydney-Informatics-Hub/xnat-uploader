@@ -6,6 +6,7 @@ import logging
 from tqdm import tqdm
 from pathlib import Path
 import xnatutils
+import click
 from openpyxl import load_workbook
 
 from xnatuploader.matcher import Matcher
@@ -100,6 +101,7 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
         csvw = csv.writer(cfh)
         for session_label, upload in tqdm(uploads.items()):  # tqdm level one
             error = None
+            keyboard_quit = False
             logger.debug(f"Uploading {session_label}")
             if test:
                 upload.log(logger)
@@ -111,6 +113,10 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
                         try:
                             status = upload.upload([file], overwrite=overwrite)
                             file.status = status[file.file]
+                        except KeyboardInterrupt:
+                            if confirm_keyboard_quit():
+                                keyboard_quit = True
+                                break
                         except Exception as e:
                             logger.warning(
                                 f"File upload {session_label} / {file.file} failed: {error}"
@@ -118,13 +124,22 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
                             error = str(e)
                             file.status = f"Error: {error}"
                         csvw.writerow(file.columns)
+                except KeyboardInterrupt:
+                    if confirm_keyboard_quit():
+                        keyboard_quit = True
                 except Exception as e:
                     logger.warning(f"Dataset upload {session_label} failed: {e}")
                     error = str(e)
                     for file in upload.files:
                         file.status = f"Error: {error}"
                         csvw.writerow(file.columns)
+            if keyboard_quit:
+                break  # fixme - after keyboard quit, have to write out the rest of the csv rows
     copy_csv_to_spreadsheet(matcher, csvout, spreadsheet)
+
+
+def confirm_keyboard_quit():
+    return click.confirm("Are you sure that you want to quit?")
 
 
 def copy_csv_to_spreadsheet(matcher, csvout, spreadsheet):
