@@ -178,7 +178,7 @@ def collate_uploads(project_id, files):
     for subject_id, files in subjects.items():
         dates = sorted(set([file.study_date for file in files]))
         visits = {dates[i]: i + 1 for i in range(len(dates))}
-        clean_datasets = sanitize_dataset_names(files)
+        clean_datasets = sanitise_dataset_names(files)
         for file in files:
             visit = visits[file.study_date]
             modality = file.modality
@@ -197,13 +197,13 @@ def collate_uploads(project_id, files):
     return uploads
 
 
-def sanitize_dataset_names(files):
+def sanitise_dataset_names(files):
     """
-    For a list of files, sanitize the .dataset values (replace characters which
+    For a list of files, sanitise the .dataset values (replace characters which
     XNAT doesn't allow in a resource id with '_') and then make sure that the
     datasets are all still unique by appending 1, 2, etc to them.
 
-    Returns a dict which maps the original datasets to sanitized values
+    Returns a dict which maps the original datasets to sanitised values
     ---
     files: list of FileMatch
 
@@ -214,13 +214,13 @@ def sanitize_dataset_names(files):
     for file in files:
         if file.dataset not in clean:
             base = sanitize_re.sub("_", file.dataset)
-            sanitized = base
+            sanitised = base
             i = 1
-            while sanitized in used:
+            while sanitised in used:
                 i += 1
-                sanitized = base + str(i)
-            clean[file.dataset] = sanitized
-            used.append(sanitized)
+                sanitised = base + str(i)
+            clean[file.dataset] = sanitised
+            used.append(sanitised)
     return clean
 
 

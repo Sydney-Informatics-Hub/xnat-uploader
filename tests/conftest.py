@@ -18,8 +18,8 @@ def test_files():
             "dir": fixtures_dir / "bad_paths",
             "config": fixtures_dir / "config_bad_paths.json",
         },
-        "sanitization": {
-            "dir": fixtures_dir / "sanitization",
+        "sanitisation": {
+            "dir": fixtures_dir / "sanitisation",
             "config": fixtures_dir / "config_bad_paths.json",
         },
     }
@@ -72,8 +72,8 @@ def uploads_dict():
 
 
 @pytest.fixture
-def sanitized_dict():
-    source_dir = Path("tests") / "fixtures/sanitization"
+def sanitised_dict():
+    source_dir = Path("tests") / "fixtures/sanitisation"
     return {
         "project": "Project",
         "uploads": {
