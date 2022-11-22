@@ -60,7 +60,7 @@ def uploads_dict():
             "397829_CT3:SomeCT": [
                 str(source_dir / "ROE^JANE-397829/20210414/SomeCT/image-00000.dcm"),
             ],
-            "038945_CT1:X-Rays": [
+            "038945_CT1:X_Rays": [
                 str(source_dir / "Smith^John-038945/20200303/X-Rays/img-00000.dcm"),
             ],
         },
