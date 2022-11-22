@@ -92,7 +92,7 @@ def sanitised_dict():
 
 @pytest.fixture(scope="session")
 def xnat_connection():
-    xnat4tests.launch_xnat()
+    xnat4tests.start_xnat()
     xnat = xnat4tests.connect()
     yield xnat
     xnat4tests.stop_xnat()
