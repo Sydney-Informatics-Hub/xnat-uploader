@@ -77,41 +77,14 @@ def sanitized_dict():
     return {
         "project": "Project",
         "uploads": {
-            "002304_CT1:Head_CT": [
-                str(
-                    source_dir
-                    / "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00000.dcm"
-                ),
-                str(
-                    source_dir
-                    / "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00001.dcm"
-                ),
+            "99999_CT1:foo_bar": [
+                str(source_dir / "johndoe-99999/20221122/foo(bar/image-00000.dcm"),
             ],
-            "002304_CT1:Neck_CT": [
-                str(
-                    source_dir
-                    / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00000.dcm"
-                ),
-                str(
-                    source_dir
-                    / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00001.dcm"
-                ),
-                str(
-                    source_dir
-                    / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00002.dcm"
-                ),
+            "99999_CT1:foo_bar2": [
+                str(source_dir / "johndoe-99999/20221122/foo,bar/image-00000.dcm"),
             ],
-            "397829_CT1:SomeCT": [
-                str(source_dir / "ROE^JANE-397829/20190115/SomeCT/img-00000.dcm"),
-            ],
-            "397829_CT2:SomeCT": [
-                str(source_dir / "ROE^JANE-397829/20200623/SomeCT/img-00000.dcm"),
-            ],
-            "397829_CT3:SomeCT": [
-                str(source_dir / "ROE^JANE-397829/20210414/SomeCT/image-00000.dcm"),
-            ],
-            "038945_CT1:X_Rays": [
-                str(source_dir / "Smith^John-038945/20200303/X-Rays/img-00000.dcm"),
+            "99999_CT1:foo_bar3": [
+                str(source_dir / "johndoe-99999/20221122/foo_bar/image-00000.dcm"),
             ],
         },
     }
