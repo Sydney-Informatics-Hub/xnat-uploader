@@ -1,4 +1,5 @@
 import logging
+import json
 from openpyxl import load_workbook
 from pathlib import Path
 
@@ -48,8 +49,35 @@ def test_collation(tmp_path, test_files, uploads_dict):
         else:
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
-
     uploads = collate_uploads(project_id, files)
     for session_scan, upload in uploads.items():
         uploads[session_scan] = [f.file for f in uploads[session_scan].files]
     assert uploads == uploads_dict["uploads"]
+
+
+def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
+    fileset = test_files["sanitisation"]
+    config_file = fileset["config"]
+    with open(config_file, "r") as fh:
+        config = json.load(fh)
+    matcher = Matcher(config)
+    logger.warning(f"Testing santisation in {fileset}")
+    log = tmp_path / "log.xlsx"
+    new_workbook(log)
+    scan(matcher, Path(fileset["dir"]), log)
+    project_id = sanitised_dict["project"]
+    wb = load_workbook(log)
+    ws = wb["Files"]
+    header = True
+    files = []
+    for row in ws.values:
+        if header:
+            header = False
+        else:
+            matchfile = matcher.from_spreadsheet(row)
+            files.append(matchfile)
+    logger.warning(f"File list = {files}")
+    uploads = collate_uploads(project_id, files)
+    for session_scan, upload in uploads.items():
+        uploads[session_scan] = [f.file for f in uploads[session_scan].files]
+    assert uploads == sanitised_dict["uploads"]

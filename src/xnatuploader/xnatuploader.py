@@ -12,6 +12,8 @@ from xnatuploader.matcher import Matcher
 from xnatuploader.workbook import new_workbook, add_filesheet, load_config
 from xnatuploader.upload import Upload
 
+from xnatutils.base import sanitize_re
+
 FILE_COLUMN_WIDTH = 50
 
 DEBUG_MAX = 10
@@ -176,22 +178,50 @@ def collate_uploads(project_id, files):
     for subject_id, files in subjects.items():
         dates = sorted(set([file.study_date for file in files]))
         visits = {dates[i]: i + 1 for i in range(len(dates))}
+        clean_datasets = sanitise_dataset_names(files)
         for file in files:
             visit = visits[file.study_date]
             modality = file.modality
             session_label = f"{subject_id}_{modality}{visit}"
             file.session_label = session_label
-            scan_type = file.dataset
+            scan_type = clean_datasets[file.dataset]
             session_scan = f"{session_label}:{scan_type}"
             if session_scan not in uploads:
                 uploads[session_scan] = Upload(
                     session_label,
                     subject_id,
                     modality,
-                    file.dataset,
+                    scan_type,
                 )
             uploads[session_scan].add_file(file)
     return uploads
+
+
+def sanitise_dataset_names(files):
+    """
+    For a list of files, sanitise the .dataset values (replace characters which
+    XNAT doesn't allow in a resource id with '_') and then make sure that the
+    datasets are all still unique by appending 1, 2, etc to them.
+
+    Returns a dict which maps the original datasets to sanitised values
+    ---
+    files: list of FileMatch
+
+    returns: dict of str: str
+    """
+    clean = {}
+    used = []
+    for file in files:
+        if file.dataset not in clean:
+            base = sanitize_re.sub("_", file.dataset)
+            sanitised = base
+            i = 1
+            while sanitised in used:
+                i += 1
+                sanitised = base + str(i)
+            clean[file.dataset] = sanitised
+            used.append(sanitised)
+    return clean
 
 
 def get_csv_filename(spreadsheet):
