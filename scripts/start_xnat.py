@@ -1,3 +1,3 @@
 import xnat4tests
 
-xnat4tests.launch_xnat()
+xnat4tests.start_xnat()
