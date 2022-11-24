@@ -154,7 +154,8 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
                 if CANNOT_CREATE_RE.match(str(e)):
                     log_failure(f"Dataset {upload.label}", e)
                     logger.error(
-                        "Project not found or permissions are wrong - terminating upload"
+                        f"Check that project {project} exists and "
+                        "you have upload permissions"
                     )
                     abandoned = True
                     break
@@ -168,8 +169,7 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
                 break
 
         if keyboard_quit:
-            logger.warning("Updating status for remaining files...")
-            for _, upload in uploads.items():
+            for _, upload in tqdm(uploads.items(), desc="Updating spreadsheet"):
                 for file in upload.files:
                     if file.file not in written:
                         file.status = KEYBOARD_QUIT_STATUS
