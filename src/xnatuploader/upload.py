@@ -21,6 +21,13 @@ class Upload:
         self.xnat_session = None
         self.files = []
 
+    @property
+    def label(self):
+        """A value which can identify this upload in XNAT - scan_type
+        corresponds to dataset. Used for logging upload errors which are
+        triggered by start_upload below."""
+        return f"{self.session_label}/{self.scan_type}"
+
     def add_file(self, file):
         self.files.append(file)
 

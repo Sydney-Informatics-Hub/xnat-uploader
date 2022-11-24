@@ -30,6 +30,7 @@ def uploads_dict():
     source_dir = Path("tests") / "fixtures/basic"
     return {
         "project": "Project",
+        "skipped": 7,
         "uploads": {
             "002304_CT1:Head_CT": [
                 str(
@@ -76,6 +77,7 @@ def sanitised_dict():
     source_dir = Path("tests") / "fixtures/sanitisation"
     return {
         "project": "Project",
+        "skipped": 0,
         "uploads": {
             "99999_CT1:foo_bar": [
                 str(source_dir / "johndoe-99999/20221122/foo(bar/image-00000.dcm"),

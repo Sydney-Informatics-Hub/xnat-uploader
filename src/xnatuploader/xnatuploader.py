@@ -7,6 +7,7 @@ from tqdm import tqdm
 from pathlib import Path
 import xnatutils
 import click
+import re
 from openpyxl import load_workbook
 
 from xnatuploader.matcher import Matcher
@@ -20,6 +21,15 @@ FILE_COLUMN_WIDTH = 50
 DEBUG_MAX = 10
 
 IGNORE_FILES = [".DS_Store"]
+
+KEYBOARD_QUIT_STATUS = "Upload interrupted by user"
+CONFIRM_KEYBOARD_QUIT_MSG = "Are you sure that you want to quit uploading?"
+
+# re which matches errors that indicate that the project doesn't exist on
+# XNAT or permissions are wrong: if this is encountered, the whole upload
+# should be abandoned rather than repeatedly trying for each set of files
+
+CANNOT_CREATE_RE = re.compile("Cannot create session")
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +87,15 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
     has marked for upload, and which haven't been uploaded yet. Keeps track of
     successful uploads in the "status" column.
 
-    Progress is written out to a temporary csv file.
+    Progress is written out to a temporary csv file. Files which are not being
+    uploaded on this pass (because they were already uploaded, or because they
+    weren't selected for upload) are still written out to the csv file.
+
+    Exceptions during uploading are trapped and logged as failures in the
+    spreadsheet, unless they're a KeyboardInterrupt. If one of these is
+    recieved, the user is prompted to confirm that they want to stop, and then
+    the files which haven't yet been uploaded are written out to the csv with
+    a status message about the interrupt.
     ---
     xnat_session: an XnatPy session, as returned by xnatutils.base.connect
     matcher: a Matcher
@@ -95,51 +113,90 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
         else:
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
-    uploads = collate_uploads(project, files)
+    skip, uploads = collate_uploads(project, files)
     csvout = get_csv_filename(spreadsheet)
+    if test:
+        dry_run(uploads)
+        return
+    written = {}
+    abandoned = False
     with open(csvout, "w", newline="") as cfh:
         csvw = csv.writer(cfh)
-        for session_label, upload in tqdm(uploads.items()):  # tqdm level one
-            error = None
-            keyboard_quit = False
+        for file in skip:
+            csvw.writerow(file.columns)
+        keyboard_quit = False
+        for session_label, upload in tqdm(uploads.items(), desc="Sessions"):
             logger.debug(f"Uploading {session_label}")
-            if test:
-                upload.log(logger)
-            else:
-                try:
-                    upload.start_upload(xnat_session, project)
-                    for file in tqdm(upload.files):  # tqdm level two
-                        logger.debug(f"Uploading {file.file}")
-                        try:
-                            status = upload.upload([file], overwrite=overwrite)
-                            file.status = status[file.file]
-                        except KeyboardInterrupt:
-                            if confirm_keyboard_quit():
-                                keyboard_quit = True
-                                break
-                        except Exception as e:
+            try:
+                upload.start_upload(xnat_session, project)
+                for file in tqdm(upload.files, desc=session_label):
+                    logger.debug(f"Uploading {file.file}")
+                    try:
+                        status = upload.upload([file], overwrite=overwrite)
+                        file.status = status[file.file]
+                    except KeyboardInterrupt:
+                        if click.confirm(CONFIRM_KEYBOARD_QUIT_MSG):
+                            keyboard_quit = True
                             logger.warning(
-                                f"File upload {session_label} / {file.file} failed: {error}"
+                                f"KeyboardInterrupt in file loop {file.file}"
                             )
-                            error = str(e)
-                            file.status = f"Error: {error}"
-                        csvw.writerow(file.columns)
-                except KeyboardInterrupt:
-                    if confirm_keyboard_quit():
-                        keyboard_quit = True
-                except Exception as e:
-                    logger.warning(f"Dataset upload {session_label} failed: {e}")
-                    error = str(e)
-                    for file in upload.files:
-                        file.status = f"Error: {error}"
-                        csvw.writerow(file.columns)
+                            break
+                    except Exception as e:
+                        file.status = log_failure(f"File {file.file}", e)
+                    csvw.writerow(file.columns)
+                    written[file.file] = True
+            except KeyboardInterrupt:
+                if click.confirm(CONFIRM_KEYBOARD_QUIT_MSG):
+                    keyboard_quit = True
+                    logger.warning("KeyboardInterrupt in dataset loop")
+                    break
+            except Exception as e:
+                if CANNOT_CREATE_RE.match(str(e)):
+                    log_failure(f"Dataset {upload.label}", e)
+                    logger.error(
+                        "Project not found or permissions are wrong - terminating upload"
+                    )
+                    abandoned = True
+                    break
+                status = log_failure(f"Dataset {upload.label}", e)
+                for file in upload.files:
+                    file.status = status
+                    csvw.writerow(file.columns)
+                    written[file.file] = True
             if keyboard_quit:
-                break  # fixme - after keyboard quit, have to write out the rest of the csv rows
-    copy_csv_to_spreadsheet(matcher, csvout, spreadsheet)
+                logger.warning("Breaking outer loop...")
+                break
+
+        if keyboard_quit:
+            logger.warning("Updating status for remaining files...")
+            for _, upload in uploads.items():
+                for file in upload.files:
+                    if file.file not in written:
+                        file.status = KEYBOARD_QUIT_STATUS
+                        csvw.writerow(file.columns)
+    if not abandoned:
+        copy_csv_to_spreadsheet(matcher, csvout, spreadsheet)
 
 
-def confirm_keyboard_quit():
-    return click.confirm("Are you sure that you want to quit?")
+def log_failure(label, e):
+    """Write a message about a file or dataset upload failure to the logs,
+    and return a value to be recorded in the spreadsheet. It's in its own
+    function to make the loop in upload a bit easier to read.
+    """
+    error = str(e)
+    logger.error(f"{label} upload failed: {error}")
+    return error
+
+
+def dry_run(uploads):
+    """Just logs what would be uploaded - broken out of the main upload
+    loop because it doesn't need to do anything else
+    ---
+    uploads: list of Upload
+    """
+    for session_label, upload in uploads.items():
+        logger.debug(f"Uploading {session_label}")
+        upload.log(logger)
 
 
 def copy_csv_to_spreadsheet(matcher, csvout, spreadsheet):
@@ -170,25 +227,29 @@ The results are available as a CSV file: {csvout}
 def collate_uploads(project_id, files):
     """
     Takes a list of files and collates them by subject (patient), visit
-    index (starting from the earliest) and scan type, returning a dictionary
+    index (starting from the earliest) and scan type, returning a list of
+    files which have skipped or already uploaded and a dictionary
     of Uploads keyed by {session_label}_{scan}
     ---
     project_id: str
     files: list of FileMatch
 
-    returns: dict of str: Upload
+    returns: tuple of ( list of FileMatch, dict of str: Upload )
     """
 
     subjects = {}
+    skip = []
     for file in files:
-        if file.selected:
+        if not file.selected:
+            skip.append(file)
+        else:
             if file.status == "success":
-                logger.info(f"{file.file} already uploaded")
+                logger.debug(f"skipping file already uploaded {file.file}")
+                skip.append(file)
             else:
                 if file.subject not in subjects:
                     subjects[file.subject] = []
                 subjects[file.subject].append(file)
-
     uploads = {}
     for subject_id, files in subjects.items():
         dates = sorted(set([file.study_date for file in files]))
@@ -209,7 +270,7 @@ def collate_uploads(project_id, files):
                     scan_type,
                 )
             uploads[session_scan].add_file(file)
-    return uploads
+    return skip, uploads
 
 
 def sanitise_dataset_names(files):
