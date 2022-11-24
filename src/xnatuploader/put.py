@@ -1,5 +1,4 @@
 import hashlib
-import re
 import urllib.parse
 from xnatutils.base import (
     sanitize_re,
@@ -16,7 +15,7 @@ from xnatutils.exceptions import (
 
 HASH_CHUNK_SIZE = 2**20
 
-my_illegal_scan_chars_re = re.compile(r"[\(\)\.]")
+BAD_CHAR_MSG = "(must only contain alpha-numeric characters and underscores)"
 
 
 def resource(session, scan, *filenames, **kwargs):
@@ -99,11 +98,12 @@ def resource(session, scan, *filenames, **kwargs):
     modality = kwargs.pop("modality", None)
     if sanitize_re.match(session):
         raise XnatUtilsUsageError(
-            "Session '{}' is not a valid session name (must only contain "
-            "alpha-numeric characters and underscores)".format(session)
+            f"Session '{session}' is not a valid session name - {BAD_CHAR_MSG}"
         )
-
-    scan = my_illegal_scan_chars_re.sub("_", scan)
+    if sanitize_re.match(scan):
+        raise XnatUtilsUsageError(
+            f"Scan {scan} is not a valid dataset name - {BAD_CHAR_MSG}"
+        )
     scan = urllib.parse.quote(scan)
 
     if resource_name is None:

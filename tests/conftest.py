@@ -18,6 +18,10 @@ def test_files():
             "dir": fixtures_dir / "bad_paths",
             "config": fixtures_dir / "config_bad_paths.json",
         },
+        "sanitisation": {
+            "dir": fixtures_dir / "sanitisation",
+            "config": fixtures_dir / "config_bad_paths.json",
+        },
     }
 
 
@@ -26,6 +30,7 @@ def uploads_dict():
     source_dir = Path("tests") / "fixtures/basic"
     return {
         "project": "Project",
+        "skipped": 7,
         "uploads": {
             "002304_CT1:Head_CT": [
                 str(
@@ -60,8 +65,28 @@ def uploads_dict():
             "397829_CT3:SomeCT": [
                 str(source_dir / "ROE^JANE-397829/20210414/SomeCT/image-00000.dcm"),
             ],
-            "038945_CT1:X-Rays": [
+            "038945_CT1:X_Rays": [
                 str(source_dir / "Smith^John-038945/20200303/X-Rays/img-00000.dcm"),
+            ],
+        },
+    }
+
+
+@pytest.fixture
+def sanitised_dict():
+    source_dir = Path("tests") / "fixtures/sanitisation"
+    return {
+        "project": "Project",
+        "skipped": 0,
+        "uploads": {
+            "99999_CT1:foo_bar": [
+                str(source_dir / "johndoe-99999/20221122/foo(bar/image-00000.dcm"),
+            ],
+            "99999_CT1:foo_bar2": [
+                str(source_dir / "johndoe-99999/20221122/foo,bar/image-00000.dcm"),
+            ],
+            "99999_CT1:foo_bar3": [
+                str(source_dir / "johndoe-99999/20221122/foo_bar/image-00000.dcm"),
             ],
         },
     }
@@ -69,7 +94,7 @@ def uploads_dict():
 
 @pytest.fixture(scope="session")
 def xnat_connection():
-    xnat4tests.launch_xnat()
+    xnat4tests.start_xnat()
     xnat = xnat4tests.connect()
     yield xnat
     xnat4tests.stop_xnat()
