@@ -7,12 +7,18 @@ HELP_ROW_HEIGHT = 90
 
 HELP_TEXT = """
 Paths are a set of patterns to be matched against file paths in the source directory.
+
 Values in curly brackets like {SubjectName} are captured into variables.
 Variables with names in all caps like {YYYY} will only match numbers.
+The special value * and ** match one or more than one intervening directory.
+
 Mappings are used to combine the variables captured from a path to the
 XNAT hierarchy Subject / Session / Dataset.
 
-XNAT configures the XNAT project and server.
+You can also use metadata from the DICOM files in the mappings, by
+using the syntax "DICOM:MetadataName" - for example, DICOM:StudyDate
+
+The XNAT section configures the XNAT project ID and server.
 """
 
 
@@ -41,20 +47,20 @@ def new_workbook(file):
     ws["A4"] = "Configuration"
     ws["A5"] = "Paths"
     ws["B5"] = "DICOM"
-    ws["C5"] = "{SubjectName}-{SubjectId}"
-    ws["D5"] = "{YYYY}{MM}{DD}-{Label}.dcm"
+    ws["C5"] = "{SubjectName}-{ID}"
+    ws["D5"] = "**"
+    ws["E5"] = "{Directory}"
+    ws["F5"] = "{filename}.dcm"
     ws["A10"] = "Mappings"
     ws["B10"] = "Subject"
-    ws["C10"] = "SubjectId"
+    ws["C10"] = "ID"
     ws["B11"] = "Session"
-    ws["C11"] = "YYYY"
-    ws["D11"] = "MM"
-    ws["E11"] = "DD"
+    ws["C11"] = "DICOM:StudyDate"
     ws["B12"] = "Dataset"
-    ws["C12"] = "Label"
+    ws["C12"] = "Directory"
     ws["A14"] = "XNAT"
     ws["B14"] = "Project"
-    ws["C14"] = "Test01"
+    ws["C14"] = "Test001"
     ws["B15"] = "Server"
     ws["C15"] = "http://localhost:8080"
     wb.save(file)
