@@ -106,61 +106,71 @@ from this directory layout.
 
 ![A screenshot of a spreadsheet](doc/spreadsheet_config.png?raw=true "A screenshot of a spreadsheet")
 
-The script turns a filelpath into XNAT hierachies in two steps:
+Configuration for inferring the XNAT values is in two sections, "Paths" and
+"Mappings", which correspond to two steps:
 
-1. Matching patterns against the filepath to create values
-2. Assigning those values, or DICOM metadata values, to the XNAT hierarchy
-
-
-## Pattern matching
+1. "Paths" tells the script how to matching patterns against the filepath to create values
+2. "Mappings" assigns those values, or DICOM metadata values, to the XNAT hierarchy
 
 
+### Path matching
 
-A recipe is a list of patterns which are used to match against directories
-and filenames and capture values from them. Matching works in two steps:
-a path is matched against a recipe to capture values, and then those values
-are mapped to the XNAT hierarchy Subject/Session/Dataset.
+The "Paths" section of the config is one or more lists of patterns to be matched
+against paths. Each set of patterns starts with a label - in the example above,
+the label is "Nested". Each cell to the right of the label will be matched
+against one or more directory names in each of the filepaths, from left to 
+right
 
-Here's an example of a recipe which looks for directories with the patient
-name and ID separated by a "-", containing DICOM files with a name consisting
-of the date in YYYYMMDD format, a "-" and a label or filename:
+If all matches are successful, that path will be marked as a row
+to be uploaded in the spreadsheet, and the values captured from the path will
+be assigned to the XNAT hierarchy values according to the "Mappings" section
+of the config worksheet.
 
-	[ "{SubjectName}-{SubjectId}", "{YYYY}{MM}{DD}-{Label}.dcm" ]
+The parts of the patterns in curly brackets like `{SubjectName}` are used to
+capture values. Patterns which are in all caps, such as `{YYYY}` or `{ID}`,
+will only match numbers. Patterns lile `{SubjectName}` will match any sequence
+of characters.
 
-For a file with the following path:
+There are two special patterns, `*` and `**`. `*` matches a single directory
+with any name, and `**` matches one or more directories with any name. `**`
+lets you construct a pattern which will match files which might be nested at
+different levels for different patients.
 
-    C:\User\xxyy\Scans\SMITH^JOHN-928302\20140903-CTChest.dcm
+### XNAT hierarchy mapping
 
-the above pattern would produce the following values:
+The "Mapping" section tells the script how to build the three XNAT hierarchy
+values, Subject, Session and Dataset, based on values captured from the paths
+and/or metadata fields read from the DICOM files. In the example, we're setting
+the Subject to the `ID` value, the Session to the `StudyDate` values extracted
+from the DICOMs, and the Dataset to the `Directory` value.
 
-    SubjectName = SMITH^JOHN
-    SubjectId   = 928302
-    YYYY        = 2014
-    MM          = 09
-    DD          = 03
-    Label       = CTChest
+### Example
 
-Patterns are matched against the filepath in reverse, starting with
-the filename, which is compared to the last pattern. If that matches, the
-directory is compared to the second-last pattern, and so on. This means that
-a single pattern can match files which are nested at different levels.
+Here's a step-by-step illustration of how the set of patterns in the example
+is matched against a filepath:
 
-These values would then be mapped to XNAT values with the following mapping:
+```
+Doe^John-0001/20200312/Chest CT/scan0000.dcm
+```
 
-    [
-    	"Subject": "SubjectId",
-    	"Session": [ "YYYY", "MM", "DD" ],
-    	"Dataset": "Label"
-    ]
+* `{SubjectName}-{ID}` matches `Doe^John-0001`, setting the values `SubjectName` to "Doe^John" and `ID` to "0001"
+* `**` matches `20200312`, and does not set any values
+* `{Directory}` matches `Chest CT` and sets the value `Directory` to "Chest CT"
+* `{filename}.dcm` matches `scan0000.dcm` and sets the value `filename` to "0001"
 
-to give the XNAT values:
+The XNAT heirarchy values are then built according to the rules in the
+"Mapping" section:
 
-    Subject = 938302
-    Session = 20140903
-    Dataset = CTChest
+* `Subject` is set to the value stored in `ID`: **0001**
+* `Session` is set to the value extracted from the DICOM metadata field `StudyDate`
+* `Dataset` is set to the value stored in `Directory`: **Chest CT**
 
-A recipe can be given multiple patterns, in case a single pattern isn't
-flexible enough to match all of the desired paths to be scanned.
+Note that not every value captured from the path needs to be used in "Mapping",
+as `SubjectName` and `filename` are ignored.
+
+The filename for the purposes of uploading will be automatically generated from
+the path itself.
+
 
 ### Checking the spreadsheet
 
