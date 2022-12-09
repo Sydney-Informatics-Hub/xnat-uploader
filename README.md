@@ -7,6 +7,7 @@ on the [xnatutils](https://github.com/Australian-Imaging-Service/xnatutils) libr
   - [Initialising the spreadsheet](#initialising-the-spreadsheet)
   - [Scanning for files](#scanning-for-files)
   - [Uploading files](#uploading-files)
+  - [Interrupting and restarting](#interrupting-and-restarting)
 * [Finding files](#finding-files)
   - [Path matching](#path-matching)
   - [XNAT hierarchy mapping](#xnat-hierarchy-mapping)
@@ -57,7 +58,7 @@ and metadata, which is stored in the spreadsheet as a new worksheet named
 This command will prompt you for your username and password on the XNAT server,
 read all the files from the spreadsheet and attempt to upload them.
 
-The files will be uploaded to the project specified, using XNAT's heirarchy:
+The files will be uploaded to the project specified, using XNAT's hierarchy:
 
 * Subject (research participant or patient)
 * Session (experiment or visit)
@@ -67,7 +68,7 @@ A Session can have multiple datasets, and a dataset will typically have many
 individual DICOM files.
 
 The subject, session and dataset are based on the metadata values are extracted
-in the scanning pass. See the Scanning section below for more details and
+in the scanning pass. See the [Finding files](#finding-files) section below for more details and
 configuration instructions.
 
 The upload command needs to know both the URL of the XNAT server and a project
@@ -78,6 +79,25 @@ You can also configure the XNAT URL and project ID in the spreadsheet - see
 the screenshot below for an example. If you specify an XNAT server or project
 ID as options on the command line, these values will be used in preference to
 the values in the spreadsheet.
+
+### Interrupting and restarting
+
+When a file can't be uploaded due to a network error, or the integrity check for
+the upload fails, this error will be recorded in the spreadsheet and a warning
+will be printed to the command line. If you re-run the upload, the program will
+try to re-upload those files which didn't successfully upload on earlier runs.
+
+While uploading is in progress, two progress bars will be shown on the command
+line. One shows the progress at a high level, with a step for every dataset in
+the upload (note that a single patient may have more than one dataset). The
+second progress bar shows a step for every file in the current dataset.
+
+You can interrupt the upload by pressing Ctrl-C. If you do this, the program
+will prompt you to confirm whether you really want to stop. If you confirm,
+the current progress will be written back to the spreadsheet, and all files
+which haven't yet been uploaded will have a status written to indicate that
+the upload was interrupted. If you re-run the upload with the same spreadsheet,
+it will continue from where it was interrupted.
 
 ## Finding files
 
@@ -182,7 +202,7 @@ Doe^John-0001/20200312/Chest CT/scan0000.dcm
 * `{Directory}` matches `Chest CT` and sets the value `Directory` to "Chest CT"
 * `{filename}.dcm` matches `scan0000.dcm` and sets the value `filename` to "0001"
 
-The XNAT heirarchy values are then built according to the rules in the
+The XNAT hierarchy values are then built according to the rules in the
 "Mapping" section:
 
 * `Subject` is set to the value stored in `ID`: **0001**
