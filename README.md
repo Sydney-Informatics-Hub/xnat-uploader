@@ -7,7 +7,7 @@ on the [xnatutils](https://github.com/Australian-Imaging-Service/xnatutils) libr
   - [Initialising the spreadsheet](#initialising-the-spreadsheet)
   - [Scanning for files](#scanning-for-files)
   - [Uploading files](#uploading-files)
-* [Finding files](#filding-files)
+* [Finding files](#finding-files)
   - [Path matching](#path-matching)
   - [XNAT hierarchy mapping](#xnat-hierarchy-mapping)
   - [Matching example](#matching-example)
