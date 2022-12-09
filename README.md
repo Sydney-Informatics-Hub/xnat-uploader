@@ -1,34 +1,120 @@
 # xnatuploader
 
-A command-line tool which builds on [xnatutils](https://github.com/Australian-Imaging-Service/xnatutils) to assist with uploading batches of DICOMs to XNAT.
+A command-line tool for uploading batches of DICOMS to an XNAT server, building
+on the [xnatutils](https://github.com/Australian-Imaging-Service/xnatutils) library.
+
+## Installation
+
+If you're on Windows, you'll need to install [Anaconda](https://docs.anaconda.com/anaconda/install/windows/), which will install the Python programming language and environment manager 
+on your PC.
+
 
 ## Usage
 
-xnatuploader runs in three passes. The first pass writes out a spreadsheet with
-a sample configuration page, which should be edited to match the file paths
-you're going to scan.
+xnatuploader uses a 'two pass' approach to uploading files to an XNAT server.
+The first pass scans a directory for files to upload, builds a list of
+the files and their associated metadata and saves the list as a spreadsheet.
+The second pass reads the spreadsheet and uploads the files to XNAT.
 
-The second pass scans a filesystem and looks for filepaths which match the
-configured patterns, uses the pattern matches to deduce the subject, session
-and dataset values for XNAT, and writes out a spreadsheet listing all of the
-files, the pattern matches and the extracted XNAT values.
+On the second pass, the status of each file upload - whether it was successful,
+and any error messages if the upload failed - is written back to the spreadsheet.
 
-The third pass reads in the spreadsheet and uses the extracted values to
-upload each file to XNAT. The spreadsheet is used to keep track of which
-files have been successfully uploaded, so that if the upload is interrupted
-or doesn't succeed for some files, it can be re-run without trying to upload
-those files which have already succeeded.
+The second pass can be re-run using the updated spreadsheet - files which have
+been successfully uploaded already will be skipped, and files which were not
+uploaded on earlier runs will be re-attempted.
 
-## Initialisation
+The details of how xnatuploader gets metadata for each file are configured
+using the spreadsheet: xnatuploader can write out a pre-initialised spreadsheet
+before you run the first pass.
 
-    xnatuploader --spreadsheet list.xlsx init
+xnatuploader is run by typing commands at the Anaconda prompt or terminal:
 
+### init
+
+`xnatuploader init --spreadsheet spreadsheet.xlsx`
+
+This initialises a spreadsheet with a single configuration worksheet
+
+### scan
+
+`xnatuploader scan --spreadsheet spreadsheet.xlsx --dir data_files`
+
+This scans the directory `data_files` for DICOMs and builds a list of files
+and metadata, which is stored in the spreadsheet as a new worksheet named
+'Files'.
+
+### upload
+
+`xnatuploader upload --spreadsheet spreadsheet.xlsx --dir data_files`
+
+This goes through the files in the spreadsheet and attempts to upload them
+to XNAT. The files will be uploaded into XNAT's heirarchy:
+
+* Subject (research participant or patient)
+* Session (experiment or visit)
+* Dataset (a scan)
+
+A Session can have multiple datasets, and a dataset will typically have many
+individual DICOM files.
+
+The subject, session and dataset are based on the metadata values are extracted
+in the scanning pass. See the Scanning section below for more details and
+configuration instructions.
 
 ## Scanning
 
-    xnatuploader --spreadsheet list.xlsx --dir images/ scan
+When `xnatupload scan` is run, it scans the specified directory for files to
+upload. The scan looks for files at every level of the subdirectories within
+the directory, and tries to match values in the filepaths which can be used
+to determine how the files should be uploaded to XNAT.
 
-### Pattern matching
+Here's an example of a directory structure with scans for two patients.
+The top-level directories have the naming convention SURNAME^GIVENNAME-ID.
+Inside each patient's directory is a directory named for the date of their
+visit in YYYYMMDD format, and inside those is one or more directories for
+each type of scan they recieved on the visit. These directories contain
+the actual DICOM files for the scan.
+
+```
+Doe^John-0001/20200312/Chest CT/scan0000.dcm
+Doe^John-0001/20200312/Chest CT/scan0001.dcm
+Doe^John-0001/20200312/Chest CT/scan0002.dcm
+Roe^Jane-0342/20190115/Head CT/scan0000.dcm
+Roe^Jane-0342/20190115/Head CT/scan0001.dcm
+Roe^Jane-0342/20190115/Head CT/scan0002.dcm
+Roe^Jane-0342/20190115/Head CT/scan0003.dcm
+Roe^Jane-0342/20200623/Head CT/scan0000.dcm
+Roe^Jane-0342/20200623/Head CT/scan0001.dcm
+Roe^Jane-0342/20200623/Head CT/scan0002.dcm
+Roe^Jane-0342/20200623/Neck CT/scan0000.dcm
+Roe^Jane-0342/20200623/Neck CT/scan0001.dcm
+Roe^Jane-0342/20200623/Neck CT/scan0002.dcm
+Roe^Jane-0342/20200623/Neck CT/scan0003.dcm
+```
+
+To transform these filepaths into XNAT hierarchy values, we need to tell
+xnatuploader to get the ID from the top-level directory and the scan type from 
+the name of the directories containing the DICOM files ("Chest CT", "Head CT"
+and so on).
+
+We also need to get the session date. This could be done using the second
+level of directories, but it's safer to get it from the DICOM
+metadata, which will have a value StudyDate with the date of the scan.
+
+Here is a configuration worksheet which will get the correct XNAT values
+from this directory layout.
+
+![A screenshot of a spreadsheet](doc/spreadsheet_config.png?raw=true "A screenshot of a spreadsheet")
+
+The script turns a filelpath into XNAT hierachies in two steps:
+
+1. Matching patterns against the filepath to create values
+2. Assigning those values, or DICOM metadata values, to the XNAT hierarchy
+
+
+## Pattern matching
+
+
 
 A recipe is a list of patterns which are used to match against directories
 and filenames and capture values from them. Matching works in two steps:
@@ -89,6 +175,15 @@ XNAT categories. It's possible to add the XNAT hierarchy values manually to the
 spreadsheet: files with manual values can be selected and will be uploaded.
 
 ## Uploading
+
+
+The third pass reads in the spreadsheet and uses the extracted values to
+upload each file to XNAT. The spreadsheet is used to keep track of which
+files have been successfully uploaded, so that if the upload is interrupted
+or doesn't succeed for some files, it can be re-run without trying to upload
+those files which have already succeeded.
+
+
 
     xnatuploader --spreadsheet list.xlsx --server http://xnat.server/ --project MyProject upload
 
