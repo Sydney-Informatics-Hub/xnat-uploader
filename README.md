@@ -7,6 +7,13 @@ on the [xnatutils](https://github.com/Australian-Imaging-Service/xnatutils) libr
   - [Initialising the spreadsheet](#initialising-the-spreadsheet)
   - [Scanning for files](#scanning-for-files)
   - [Uploading files](#uploading-files)
+* [Finding files](#filding-files)
+  - [Path matching](#path-matching)
+  - [XNAT hierarchy mapping](#xnat-hierarchy-mapping)
+  - [Matching example](#matching-example)
+  - [Checking the spreadsheet](#checking-the-spreadsheet)
+* [Installation](#installation)
+* [Upgrading](#upgrading)
 
 ## Usage
 
@@ -32,7 +39,8 @@ xnatuploader is run by typing commands at the Anaconda prompt or terminal:
 
 `xnatuploader init --spreadsheet spreadsheet.xlsx`
 
-This initialises a spreadsheet with a single configuration worksheet
+This initialises a spreadsheet with a single worksheet with default
+configuration values. Details of the configuration are in the [section on finding files](#finding-files).
 
 ### Scanning for files
 
@@ -71,7 +79,7 @@ the screenshot below for an example. If you specify an XNAT server or project
 ID as options on the command line, these values will be used in preference to
 the values in the spreadsheet.
 
-## Scanning
+## Finding files
 
 When `xnatupload scan` is run, it scans the specified directory for files to
 upload. The scan looks for files at every level of the subdirectories within
