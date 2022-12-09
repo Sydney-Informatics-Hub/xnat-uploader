@@ -3,68 +3,10 @@
 A command-line tool for uploading batches of DICOMS to an XNAT server, building
 on the [xnatutils](https://github.com/Australian-Imaging-Service/xnatutils) library.
 
-## Installation
-
-If you're on Windows, you'll need to install [Anaconda](https://docs.anaconda.com/anaconda/install/windows/), which will install the Python programming language and environment manager 
-on your PC.
-
-Open the Anaconda prompt via the Start menu.
-
-```
-conda create -n xnatuploader
-```
-This will create a separate Python environment in which we'll install 
-xnatuploader. Answer 'Y' when it prompts you to proceed.
-
-```
-conda activate xnatuploader
-```
-
-This activates the Python environment you've just created
-
-```
-pip install xnatuploader
-
-```
-
-This will download and install the latest version of xnatuploader. To check that
-everything has worked after the upload and installation has finished, type the
-following:
-
-```
-xnatuploader --help
-```
-
-You should get a message like the following:
-
-```
-usage: XNAT batch uploader [-h] [--dir DIR] [--spreadsheet SPREADSHEET]
-                           [--server SERVER] [--project PROJECT]
-                           [--loglevel LOGLEVEL] [--debug] [--logdir LOGDIR]
-                           [--test] [--unmatched] [--overwrite]
-                           {init,scan,upload,help}
-
-positional arguments:
-  {init,scan,upload,help}
-                        Operation
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --dir DIR             Base directory to scan for files
-  --spreadsheet SPREADSHEET
-                        File list spreadsheet
-  --server SERVER       XNAT server
-  --project PROJECT     XNAT project ID
-  --loglevel LOGLEVEL   Logging level
-  --debug               Debug mode: only attempt to match 10 patterns and
-                        generates a lot of debug messages
-  --logdir LOGDIR       Directory to write logs to
-  --test                Test mode: don't upload, just log what will be
-                        uploaded
-  --unmatched           Whether to include unmatched files in list
-  --overwrite           Whether to overwrite files which have already been
-                        uploaded
-```
+* [Usage](#usage)
+  - [Initialising the spreadsheet](#initialising-the-spreadsheet)
+  - [Scanning for files](#scanning-for-files)
+  - [Uploading files](#uploading-files)
 
 ## Usage
 
@@ -86,13 +28,13 @@ before you run the first pass.
 
 xnatuploader is run by typing commands at the Anaconda prompt or terminal:
 
-### init
+### Initialising the spreadsheet
 
 `xnatuploader init --spreadsheet spreadsheet.xlsx`
 
 This initialises a spreadsheet with a single configuration worksheet
 
-### scan
+### Scanning for files
 
 `xnatuploader scan --spreadsheet spreadsheet.xlsx --dir data_files`
 
@@ -100,7 +42,7 @@ This scans the directory `data_files` for DICOMs and builds a list of files
 and metadata, which is stored in the spreadsheet as a new worksheet named
 'Files'.
 
-### upload
+### Uploading files
 
 `xnatuploader upload --spreadsheet spreadsheet.xlsx --dir data_files --project Test001 --server https://xnat.institution.edu/`
 
@@ -218,7 +160,7 @@ and/or metadata fields read from the DICOM files. In the example, we're setting
 the Subject to the `ID` value, the Session to the `StudyDate` values extracted
 from the DICOMs, and the Dataset to the `Directory` value.
 
-### Example
+### Matching example
 
 Here's a step-by-step illustration of how the set of patterns in the example
 is matched against a filepath:
@@ -258,3 +200,78 @@ write a row for every file whether or not the match succeeds:
 `xnatuploader scan --spreadsheet spreadsheet.xlsx --dir data_files --unmatched`
 
 This can be useful for figuring out why files aren't matching patterns.
+
+## Installation
+
+If you're on Windows, you'll need to install [Anaconda](https://docs.anaconda.com/anaconda/install/windows/), which will install the Python programming language and environment manager 
+on your PC.
+
+Open the Anaconda prompt via the Start menu.
+
+If you're on a Mac or Linux, you can also install Conda using the relevant
+installer, and just use a terminal for the rest of the installation instructions.
+
+```
+conda create -n xnatuploader
+```
+This will create a separate Python environment in which we'll install 
+xnatuploader. Answer 'Y' when it prompts you to proceed.
+
+```
+conda activate xnatuploader
+```
+
+This activates the Python environment you've just created
+
+```
+pip install xnatuploader
+```
+
+This will download and install the latest version of xnatuploader. To check that
+everything has worked after the upload and installation has finished, type the
+following:
+
+```
+xnatuploader --help
+```
+
+You should get a message like the following:
+
+```
+usage: XNAT batch uploader [-h] [--dir DIR] [--spreadsheet SPREADSHEET]
+                           [--server SERVER] [--project PROJECT]
+                           [--loglevel LOGLEVEL] [--debug] [--logdir LOGDIR]
+                           [--test] [--unmatched] [--overwrite]
+                           {init,scan,upload,help}
+
+positional arguments:
+  {init,scan,upload,help}
+                        Operation
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --dir DIR             Base directory to scan for files
+  --spreadsheet SPREADSHEET
+                        File list spreadsheet
+  --server SERVER       XNAT server
+  --project PROJECT     XNAT project ID
+  --loglevel LOGLEVEL   Logging level
+  --debug               Debug mode: only attempt to match 10 patterns and
+                        generates a lot of debug messages
+  --logdir LOGDIR       Directory to write logs to
+  --test                Test mode: don't upload, just log what will be
+                        uploaded
+  --unmatched           Whether to include unmatched files in list
+  --overwrite           Whether to overwrite files which have already been
+                        uploaded
+```
+
+## Upgrading
+
+To get the latest version of xnatuploader, type the following (at the Anaconda
+prompt or terminal):
+
+```
+pip install --upgrade xnatuploader
+```
+
