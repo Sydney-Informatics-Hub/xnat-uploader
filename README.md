@@ -8,6 +8,63 @@ on the [xnatutils](https://github.com/Australian-Imaging-Service/xnatutils) libr
 If you're on Windows, you'll need to install [Anaconda](https://docs.anaconda.com/anaconda/install/windows/), which will install the Python programming language and environment manager 
 on your PC.
 
+Open the Anaconda prompt via the Start menu.
+
+```
+conda create -n xnatuploader
+```
+This will create a separate Python environment in which we'll install 
+xnatuploader. Answer 'Y' when it prompts you to proceed.
+
+```
+conda activate xnatuploader
+```
+
+This activates the Python environment you've just created
+
+```
+pip install xnatuploader
+
+```
+
+This will download and install the latest version of xnatuploader. To check that
+everything has worked after the upload and installation has finished, type the
+following:
+
+```
+xnatuploader --help
+```
+
+You should get a message like the following:
+
+```
+usage: XNAT batch uploader [-h] [--dir DIR] [--spreadsheet SPREADSHEET]
+                           [--server SERVER] [--project PROJECT]
+                           [--loglevel LOGLEVEL] [--debug] [--logdir LOGDIR]
+                           [--test] [--unmatched] [--overwrite]
+                           {init,scan,upload,help}
+
+positional arguments:
+  {init,scan,upload,help}
+                        Operation
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --dir DIR             Base directory to scan for files
+  --spreadsheet SPREADSHEET
+                        File list spreadsheet
+  --server SERVER       XNAT server
+  --project PROJECT     XNAT project ID
+  --loglevel LOGLEVEL   Logging level
+  --debug               Debug mode: only attempt to match 10 patterns and
+                        generates a lot of debug messages
+  --logdir LOGDIR       Directory to write logs to
+  --test                Test mode: don't upload, just log what will be
+                        uploaded
+  --unmatched           Whether to include unmatched files in list
+  --overwrite           Whether to overwrite files which have already been
+                        uploaded
+```
 
 ## Usage
 
@@ -45,10 +102,12 @@ and metadata, which is stored in the spreadsheet as a new worksheet named
 
 ### upload
 
-`xnatuploader upload --spreadsheet spreadsheet.xlsx --dir data_files`
+`xnatuploader upload --spreadsheet spreadsheet.xlsx --dir data_files --project Test001 --server https://xnat.institution.edu/`
 
-This goes through the files in the spreadsheet and attempts to upload them
-to XNAT. The files will be uploaded into XNAT's heirarchy:
+This command will prompt you for your username and password on the XNAT server,
+read all the files from the spreadsheet and attempt to upload them.
+
+The files will be uploaded to the project specified, using XNAT's heirarchy:
 
 * Subject (research participant or patient)
 * Session (experiment or visit)
@@ -60,6 +119,15 @@ individual DICOM files.
 The subject, session and dataset are based on the metadata values are extracted
 in the scanning pass. See the Scanning section below for more details and
 configuration instructions.
+
+The upload command needs to know both the URL of the XNAT server and a project
+ID on the server to which the scans will be added. The project must already
+exist, and you must have the right access level to add scans to it.
+
+You can also configure the XNAT URL and project ID in the spreadsheet - see
+the screenshot below for an example. If you specify an XNAT server or project
+ID as options on the command line, these values will be used in preference to
+the values in the spreadsheet.
 
 ## Scanning
 
@@ -136,6 +204,12 @@ with any name, and `**` matches one or more directories with any name. `**`
 lets you construct a pattern which will match files which might be nested at
 different levels for different patients.
 
+Note: if one set of patterns isn't flexible enough to match all the ways in
+which scans are stored in the directory, you can add extra patterns as new
+rows in the spreadsheet. Each set of patterns needs a unique label.
+Sets of patterns will be matched in order from the top, and the first one
+which succeeds will be used.
+
 ### XNAT hierarchy mapping
 
 The "Mapping" section tells the script how to build the three XNAT hierarchy
@@ -171,39 +245,16 @@ as `SubjectName` and `filename` are ignored.
 The filename for the purposes of uploading will be automatically generated from
 the path itself.
 
-
 ### Checking the spreadsheet
 
 By default, all files which match a pattern are marked as selected for upload
 in the spreadsheet. Before uploading, you can edit the spreadsheet to
 deselect files or groups of files which shouldn't be uploaded.
 
-If the scan is run with the "unmatched" flag, all files will be included in 
-the spreadsheet. Unmatched files will not be marked as selected for upload,
-and would not be uploaded if selected, as they won't have values to be used as
-XNAT categories. It's possible to add the XNAT hierarchy values manually to the
-spreadsheet: files with manual values can be selected and will be uploaded.
+By default, files for which no match succeeds won't be written to the
+spreadsheet. You can run a scan with the `--unmatched` flag, which will 
+write a row for every file whether or not the match succeeds:
 
-## Uploading
+`xnatuploader scan --spreadsheet spreadsheet.xlsx --dir data_files --unmatched`
 
-
-The third pass reads in the spreadsheet and uses the extracted values to
-upload each file to XNAT. The spreadsheet is used to keep track of which
-files have been successfully uploaded, so that if the upload is interrupted
-or doesn't succeed for some files, it can be re-run without trying to upload
-those files which have already succeeded.
-
-
-
-    xnatuploader --spreadsheet list.xlsx --server http://xnat.server/ --project MyProject upload
-
-This reads back the values written out to the list.xlsx spreadsheet and
-uses them to upload the selected files to the selected project on XNAT.
-Authentication works the same way as xnatutils - the user is prompted for their
-username and password, and the encrypted values are cached in a .netrc file 
-
-The spreadsheet will be updated to indicate the status of each uploaded file.
-
-If the upload is interrupted, it can be restarted by running the same command:
-files marked as having been uploaded successfully will be skipped.
-
+This can be useful for figuring out why files aren't matching patterns.
