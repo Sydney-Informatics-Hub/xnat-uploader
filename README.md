@@ -34,6 +34,16 @@ The details of how xnatuploader gets metadata for each file are configured
 using the spreadsheet: xnatuploader can write out a pre-initialised spreadsheet
 before you run the first pass.
 
+## Windows
+
+From the Start menu, select the Anaconda prompt. Once the Anaconda prompt is
+opened, you'll need to activate the conda environment in which xnatuploader
+was installed:
+
+    conda activate xnatuploader
+
+## Initialisation
+
 xnatuploader is run by typing commands at the Anaconda prompt or terminal:
 
 ### Initialising the spreadsheet
