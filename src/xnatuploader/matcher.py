@@ -146,8 +146,8 @@ class Matcher:
                 raise RecipeException(f"Recipe has repeated parameter: {param}")
             if re.match(param[0] + "+$", param):
                 regexp += f"(?P<{param}>" + (r"\d" * len(param)) + ")"
-            elif param == "ID":
-                regexp += f"(?P<{param}>" + r"\d+" + ")"  # for Sublime Text
+            # elif param == "ID":
+            #     regexp += f"(?P<{param}>" + r"\d+" + ")"  # for Sublime Text
             else:
                 if delimiter != "":
                     c = delimiter[0]
