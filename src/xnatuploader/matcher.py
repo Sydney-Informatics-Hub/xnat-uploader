@@ -171,10 +171,10 @@ class Matcher:
         """
         label, values = self.match_path(filepath.relative_to(root))
         if label:
-            logger.debug("> reading DICOM metadata")
+            logger.debug(f"> reading DICOM metadata {filepath}")
             dicom_values = self.read_dicom(filepath)
             if dicom_values is None:
-                logger.warning("> couldn't read DICOM metadata ")
+                logger.debug(f"> DICOM read failed {filepath}")
                 match = FileMatch(self, filepath, None)
                 match.status = "No DICOM metadata"
                 return match
