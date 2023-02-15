@@ -52,7 +52,11 @@ def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_fil
                     expect[subject][session_label] = []
                 expect[subject][session_label].append(m)
     for subject, sessions in expect.items():
+        assert subject in project.subjects
         for session_label, rows in sessions.items():
+            assert session_label in project.experiments
+            xnat_date = project.experiments[session_label].date
+            assert xnat_date.strftime("%Y%m%d") == rows[0].study_date
             for row in rows:
                 assert row.file in uploads
                 assert uploads[row.file].status == "success"

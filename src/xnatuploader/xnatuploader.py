@@ -269,6 +269,7 @@ def collate_uploads(project_id, files):
                 uploads[session_scan] = Upload(
                     session_label,
                     subject_id,
+                    file.study_date,
                     modality,
                     scan_type,
                 )
