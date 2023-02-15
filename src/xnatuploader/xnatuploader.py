@@ -49,7 +49,7 @@ def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
     """
     logger.info(f"Loading {spreadsheet}")
     wb = load_workbook(spreadsheet)
-    ws = add_filesheet(wb, matcher)
+    ws = add_filesheet(wb, matcher, debug)  # keeps old sheets if debug=True
     matched = 0
     unmatched = 0
     logger.info("Preparing file list")
@@ -202,10 +202,13 @@ def dry_run(uploads):
 def copy_csv_to_spreadsheet(matcher, csvout, spreadsheet):
     """Copies the csv of uploaded files to the Files worksheet of the
     spreadsheet. If it can't, tells the user that the results are in the csv
-    file
+    file.
+    This function always clobbers the Files worksheet with its updated value,
+    unlike scan, which can save old versions of Files when running in debug
+    mode.
     """
     wb = load_workbook(spreadsheet)
-    ws = add_filesheet(wb, matcher)
+    ws = add_filesheet(wb, matcher, False)
     logger.debug(f"Copying upload results from {csvout} to {spreadsheet}")
     with open(csvout, "r") as cfh:
         for row in csv.reader(cfh):
