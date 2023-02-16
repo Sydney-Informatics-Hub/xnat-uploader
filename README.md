@@ -34,6 +34,16 @@ The details of how xnatuploader gets metadata for each file are configured
 using the spreadsheet: xnatuploader can write out a pre-initialised spreadsheet
 before you run the first pass.
 
+## Windows
+
+From the Start menu, select the Anaconda prompt. Once the Anaconda prompt is
+opened, you'll need to activate the conda environment in which xnatuploader
+was installed:
+
+    conda activate xnatuploader
+
+## Initialisation
+
 xnatuploader is run by typing commands at the Anaconda prompt or terminal:
 
 ### Initialising the spreadsheet
@@ -165,9 +175,9 @@ be assigned to the XNAT hierarchy values according to the "Mappings" section
 of the config worksheet.
 
 The parts of the patterns in curly brackets like `{SubjectName}` are used to
-capture values. Patterns which are in all caps, such as `{YYYY}` or `{ID}`,
-will only match numbers. Patterns lile `{SubjectName}` will match any sequence
-of characters.
+capture values. Patterns which are in all caps, such as `{YYYY}` or `{II}`,
+will only match numbers with the specified number of digits. All other 
+patterns, for example `{SubjectName}`, will match any sequence of characters.
 
 There are two special patterns, `*` and `**`. `*` matches a single directory
 with any name, and `**` matches one or more directories with any name. `**`

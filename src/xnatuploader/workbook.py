@@ -66,19 +66,28 @@ def new_workbook(file):
     wb.save(file)
 
 
-def add_filesheet(wb, matcher):
+def add_filesheet(wb, matcher, debug):
     """
     Adds a worksheet to a workbook with headers from the matcher object
-    and niceties such as a wider column for the file names
+    and niceties such as a wider column for the file names.
+
+    If debug is true, an existing worksheet with the name "Files" is renamed
+    to "Files-prev" - otherwise it's deleted.
     ---
     wb: a Workbook
     matcher: a Matcher
+    debug: bool
 
     returns: the new worksheet
     """
     if "Files" in wb:
-        old_files = wb["Files"]
-        old_files.title = "Files-prev"  # will get 1, 2, etc appended if exists
+        if debug:
+            old_files = wb["Files"]
+            # older versions will be automatically renamed to Files-prev1,
+            # Files-prev2 etc
+            old_files.title = "Files-prev"
+        else:
+            wb.remove_sheet(wb["Files"])
     ws = wb.create_sheet("Files")
     ws.column_dimensions["B"].width = FILE_COLUMN_WIDTH
     ws.append(matcher.headers)

@@ -146,8 +146,8 @@ class Matcher:
                 raise RecipeException(f"Recipe has repeated parameter: {param}")
             if re.match(param[0] + "+$", param):
                 regexp += f"(?P<{param}>" + (r"\d" * len(param)) + ")"
-            elif param == "ID":
-                regexp += f"(?P<{param}>" + r"\d+" + ")"  # for Sublime Text
+            # elif param == "ID":
+            #     regexp += f"(?P<{param}>" + r"\d+" + ")"  # for Sublime Text
             else:
                 if delimiter != "":
                     c = delimiter[0]
@@ -171,10 +171,10 @@ class Matcher:
         """
         label, values = self.match_path(filepath.relative_to(root))
         if label:
-            logger.debug("> reading DICOM metadata")
+            logger.debug(f"> reading DICOM metadata {filepath}")
             dicom_values = self.read_dicom(filepath)
             if dicom_values is None:
-                logger.warning("> couldn't read DICOM metadata ")
+                logger.debug(f"> DICOM read failed {filepath}")
                 match = FileMatch(self, filepath, None)
                 match.status = "No DICOM metadata"
                 return match
