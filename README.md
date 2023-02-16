@@ -14,6 +14,7 @@ on the [xnatutils](https://github.com/Australian-Imaging-Service/xnatutils) libr
   - [Matching example](#matching-example)
   - [Checking the spreadsheet](#checking-the-spreadsheet)
 * [Installation](#installation)
+* [Task Scheduler](#scheduling)
 * [Upgrading](#upgrading)
 
 ## Usage
@@ -303,6 +304,25 @@ optional arguments:
   --overwrite           Whether to overwrite files which have already been
                         uploaded
 ```
+
+## Task scheduler
+
+xnatuploader can be run by the Windows Task Scheduler if it's wrapped in the
+following batch file (replace USER_NAME with your own)
+
+    call C:\Users\USER_NAME\Anaconda3\Scripts\activate.bat
+    call conda activate xnatuploader
+    call xnatuploader upload --spreadsheet spreadsheet.xlsx --dir dir
+
+Note that this will only work if the underlying xnat library can authenticate
+using credentials stored in a _netrc or .netrc file. See
+[the xnatpy documentation](https://xnat.readthedocs.io/en/latest/static/tutorial.html)
+for instructions on how to set this up.
+
+Alternately, if you run xnatuploader manually and authenticate, it will keep 
+an authentication token on your machine for a time period (controlled by the
+policy of your XNAT server, typically 72 hours). Once you've authenticated
+manually, a task scheduler job should work until the token expires.
 
 ## Upgrading
 
