@@ -12,12 +12,16 @@ class Upload:
     have more than one file.
     """
 
-    def __init__(self, session_label, subject, date, modality, scan_type):
+    def __init__(
+        self, session_label, subject, date, modality, scan_type, manufacturer, model
+    ):
         self.session_label = session_label
         self.subject = subject
         self.modality = modality
         self.date = date
         self.scan_type = scan_type
+        self.manufacturer = manufacturer
+        self.model = model
         self.new_session = True
         self.xnat_session = None
         self.files = []
@@ -43,6 +47,8 @@ class Upload:
             subject_id=self.subject,
             date=self.date,
             modality=self.modality,
+            manufacturer=self.manufacturer,
+            model=self.model,
             create_session=self.new_session,
             connection=xnat_session,
         )

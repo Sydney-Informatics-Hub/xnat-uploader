@@ -97,6 +97,8 @@ def resource(session, scan, *filenames, **kwargs):
     project_id = kwargs.pop("project_id", None)
     subject_id = kwargs.pop("subject_id", None)
     date = kwargs.pop("date", None)
+    scanner_manufacturer = kwargs.pop("manufacturer", None)
+    scanner_model = kwargs.pop("model", None)
     scan_id = kwargs.pop("scan_id", None)
     modality = kwargs.pop("modality", None)
     if sanitize_re.match(session):
@@ -158,6 +160,10 @@ def resource(session, scan, *filenames, **kwargs):
                 xsession = session_cls(label=session, parent=xsubject)
                 if date is not None:
                     xsession.date = date
+                if scanner_manufacturer is not None:
+                    xsession.scanner.manufacturer = scanner_manufacturer
+                if scanner_model is not None:
+                    xsession.scanner.model = scanner_model
             else:
                 raise XnatUtilsNoMatchingSessionsException(
                     "'{}' session does not exist, to automatically create it "

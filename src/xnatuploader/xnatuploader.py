@@ -272,6 +272,8 @@ def collate_uploads(project_id, files):
                     file.study_date,
                     modality,
                     scan_type,
+                    file.manufacturer,
+                    file.model,
                 )
             uploads[session_scan].add_file(file)
     return skip, uploads
