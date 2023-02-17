@@ -8,6 +8,11 @@ from pathlib import Path
 import xnatutils
 import click
 import re
+
+from importlib.metadata import version
+
+__version__ = version("xnatuploader")
+
 from openpyxl import load_workbook
 
 from xnatuploader.matcher import Matcher
@@ -411,6 +416,7 @@ debug messages
         default=False,
         help="Whether to overwrite files which have already been uploaded",
     )
+    ap.add_argument("--version", action="version", version="%(prog)s " + __version__)
     ap.add_argument(
         "operation",
         default="scan",
