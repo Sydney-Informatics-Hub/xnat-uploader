@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2]
+
+Features:
+
+- metadata for scanner manufacturer and model
+
+Bug fixes:
+
+- dates are being set correctly
+
+## [1.0.1]
+
+Bug fixes:
+
+- Stopped the spreadsheet accumulating mutiple versions of the Files sheet
+
+## [1.0.0]
+
 ## [0.0.3]
 
 Features:
@@ -12,7 +30,7 @@ Features:
 - Progress bars
 - Wildcards are more flexible
 - DICOM metadata extraction can be configured in the spreadsheet
-- now tested with uploades of 1000+ scan files
+- now tested with uploads of 1000+ scan files
 
 Bug fixes:
 
