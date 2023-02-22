@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3]
+
+Features:
+
+- added --version option
+
 ## [1.0.2]
 
 Features:
@@ -20,6 +26,7 @@ Bug fixes:
 Bug fixes:
 
 - Stopped the spreadsheet accumulating mutiple versions of the Files sheet
+- Removed magic behaviour for {ID} parameter
 
 ## [1.0.0]
 
