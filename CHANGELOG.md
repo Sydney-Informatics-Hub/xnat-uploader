@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Features:
 
+- Added API calls to trigger metadata extraction and server pipelines
 - added --version option
 
 ## [1.0.2]

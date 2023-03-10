@@ -45,10 +45,8 @@ class Upload:
             resource_name="DICOM",
             project_id=project,
             subject_id=self.subject,
-            date=self.date,
+            #            date=self.date,
             modality=self.modality,
-            manufacturer=self.manufacturer,
-            model=self.model,
             create_session=self.new_session,
             connection=xnat_session,
         )
@@ -119,3 +117,21 @@ class Upload:
         logger.info(f"    Scan type: {self.scan_type}")
         for file in self.files:
             logger.info(f"        File: {file.file}")
+
+
+def trigger_pipelines(xnat_session, project, uploads):
+    """
+    Call the put API endpoints to trigger DICOM metadata extraction and
+    snapshotting on the server
+    """
+    sessions = {upload.session_label: upload.subject for upload in uploads.values()}
+    for session, subject in sessions.items():
+        try:
+            logger.debug(f"Pipelines for {project} / {subject} / {session}")
+            uri = f"/data/projects/{project}/subjects/{subject}/experiments/{session}"
+            xnat_session.put(f"{uri}?pullDataFromHeaders=true")
+            xnat_session.put(f"{uri}?fixScanTypes=true")
+            xnat_session.put(f"{uri}?triggerPipelines=true")
+        except Exception as e:
+            logger.info("Error while triggering metadata extraction / pipelines")
+            logger.info(str(e))
