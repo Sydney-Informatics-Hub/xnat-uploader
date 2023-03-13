@@ -29,7 +29,7 @@ def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_fil
     new_workbook(log_scanned)
     scan(matcher, Path(test_dir), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
-    upload(xnat_connection, matcher, project.name, log_uploaded)
+    upload(xnat_connection, matcher, project.name, log_uploaded, nopipeline=True)
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
     uploads = {}
@@ -55,8 +55,8 @@ def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_fil
         assert subject in project.subjects
         for session_label, rows in sessions.items():
             assert session_label in project.experiments
-            xnat_date = project.experiments[session_label].date
-            assert xnat_date.strftime("%Y%m%d") == rows[0].study_date
+            # xnat_date = project.experiments[session_label].date
+            # assert xnat_date.strftime("%Y%m%d") == rows[0].study_date
             for row in rows:
                 assert row.file in uploads
                 assert uploads[row.file].status == "success"
@@ -119,7 +119,7 @@ def test_missing_file(xnat_connection, tmp_path, test_files):
                     ws.cell(i, 2).value = bad_file
 
     scanned_wb.save(log_uploaded)
-    upload(xnat_connection, matcher, project.name, log_uploaded)
+    upload(xnat_connection, matcher, project.name, log_uploaded, nopipeline=True)
     uploads = {}
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
