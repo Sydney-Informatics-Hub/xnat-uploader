@@ -14,6 +14,7 @@ Features:
 Bug fixes:
 
 - dates are being set correctly
+- testing build errors
 
 ## [1.0.1]
 
