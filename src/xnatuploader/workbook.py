@@ -87,7 +87,7 @@ def add_filesheet(wb, matcher, debug):
             # Files-prev2 etc
             old_files.title = "Files-prev"
         else:
-            wb.remove_sheet(wb["Files"])
+            wb.remove(wb["Files"])
     ws = wb.create_sheet("Files")
     ws.column_dimensions["B"].width = FILE_COLUMN_WIDTH
     ws.append(matcher.headers)

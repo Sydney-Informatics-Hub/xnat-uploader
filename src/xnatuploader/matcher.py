@@ -4,7 +4,14 @@ from pydicom import dcmread
 from pydicom.errors import InvalidDicomError
 
 XNAT_HIERARCHY = ["Subject", "Session", "Dataset"]
-DICOM_PARAMS = ["Modality", "StudyDescription", "StudyDate"]
+DICOM_PARAMS = [
+    "Modality",
+    "StudyDescription",
+    "StudyDate",
+    "Manufacturer",
+    "ManufacturerModelName",
+    "StationName",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -495,3 +502,17 @@ class FileMatch:
             return self.dicom_values["Modality"]
         else:
             return "OT"  # DICOM code for "Other"
+
+    @property
+    def manufacturer(self):
+        if self.dicom_values is not None:
+            return self.dicom_values["Manufacturer"]
+        else:
+            return None
+
+    @property
+    def model(self):
+        if self.dicom_values is not None:
+            return self.dicom_values["ManufacturerModelName"]
+        else:
+            return None

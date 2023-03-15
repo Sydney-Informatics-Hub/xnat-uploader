@@ -8,11 +8,16 @@ from pathlib import Path
 import xnatutils
 import click
 import re
+
+from importlib.metadata import version
+
+__version__ = version("xnatuploader")
+
 from openpyxl import load_workbook
 
 from xnatuploader.matcher import Matcher
 from xnatuploader.workbook import new_workbook, add_filesheet, load_config
-from xnatuploader.upload import Upload
+from xnatuploader.upload import Upload, trigger_pipelines
 
 from xnatutils.base import sanitize_re
 
@@ -81,7 +86,15 @@ def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
     wb.save(spreadsheet)
 
 
-def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=False):
+def upload(
+    xnat_session,
+    matcher,
+    project,
+    spreadsheet,
+    test=False,
+    overwrite=False,
+    nopipeline=False,
+):
     """
     Load an Excel spreadsheet created with scan and upload the files which the user
     has marked for upload, and which haven't been uploaded yet. Keeps track of
@@ -125,11 +138,11 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
         for file in skip:
             csvw.writerow(file.columns)
         keyboard_quit = False
-        for session_label, upload in tqdm(uploads.items(), desc="Sessions"):
-            logger.debug(f"Uploading {session_label}")
+        for session_scan, upload in tqdm(uploads.items(), desc="Sessions"):
+            logger.debug(f"Uploading {session_scan}")
             try:
                 upload.start_upload(xnat_session, project)
-                for file in tqdm(upload.files, desc=session_label):
+                for file in tqdm(upload.files, desc=session_scan):
                     logger.debug(f"Uploading {file.file}")
                     try:
                         status = upload.upload([file], overwrite=overwrite)
@@ -165,8 +178,9 @@ def upload(xnat_session, matcher, project, spreadsheet, test=False, overwrite=Fa
                     csvw.writerow(file.columns)
                     written[file.file] = True
             if keyboard_quit:
-                logger.warning("Breaking outer loop...")
                 break
+        if not nopipeline:
+            trigger_pipelines(xnat_session, project, uploads)
 
         if keyboard_quit:
             for _, upload in tqdm(uploads.items(), desc="Updating spreadsheet"):
@@ -184,7 +198,7 @@ def log_failure(label, e):
     function to make the loop in upload a bit easier to read.
     """
     error = str(e)
-    logger.error(f"{label} upload failed: {error}")
+    logger.error(f"{label} exception: {error}")
     return error
 
 
@@ -272,6 +286,8 @@ def collate_uploads(project_id, files):
                     file.study_date,
                     modality,
                     scan_type,
+                    file.manufacturer,
+                    file.model,
                 )
             uploads[session_scan].add_file(file)
     return skip, uploads
@@ -410,6 +426,13 @@ debug messages
         help="Whether to overwrite files which have already been uploaded",
     )
     ap.add_argument(
+        "--nopipeline",
+        action="store_true",
+        default=False,
+        help="Don't trigger the metadata extraction and pipeline",
+    )
+    ap.add_argument("--version", action="version", version="%(prog)s " + __version__)
+    ap.add_argument(
         "operation",
         default="scan",
         choices=["init", "scan", "upload", "help"],
@@ -466,6 +489,7 @@ debug messages
             args.spreadsheet,
             args.test,
             args.overwrite,
+            args.nopipeline,
         )
 
 

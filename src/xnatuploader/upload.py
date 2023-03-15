@@ -12,12 +12,16 @@ class Upload:
     have more than one file.
     """
 
-    def __init__(self, session_label, subject, date, modality, scan_type):
+    def __init__(
+        self, session_label, subject, date, modality, scan_type, manufacturer, model
+    ):
         self.session_label = session_label
         self.subject = subject
         self.modality = modality
         self.date = date
         self.scan_type = scan_type
+        self.manufacturer = manufacturer
+        self.model = model
         self.new_session = True
         self.xnat_session = None
         self.files = []
@@ -41,7 +45,7 @@ class Upload:
             resource_name="DICOM",
             project_id=project,
             subject_id=self.subject,
-            date=self.date,
+            #            date=self.date,
             modality=self.modality,
             create_session=self.new_session,
             connection=xnat_session,
@@ -113,3 +117,21 @@ class Upload:
         logger.info(f"    Scan type: {self.scan_type}")
         for file in self.files:
             logger.info(f"        File: {file.file}")
+
+
+def trigger_pipelines(xnat_session, project, uploads):
+    """
+    Call the put API endpoints to trigger DICOM metadata extraction and
+    snapshotting on the server
+    """
+    sessions = {upload.session_label: upload.subject for upload in uploads.values()}
+    for session, subject in sessions.items():
+        try:
+            logger.debug(f"Pipelines for {project} / {subject} / {session}")
+            uri = f"/data/projects/{project}/subjects/{subject}/experiments/{session}"
+            xnat_session.put(f"{uri}?pullDataFromHeaders=true")
+            xnat_session.put(f"{uri}?fixScanTypes=true")
+            xnat_session.put(f"{uri}?triggerPipelines=true")
+        except Exception as e:
+            logger.info("Error while triggering metadata extraction / pipelines")
+            logger.info(str(e))
