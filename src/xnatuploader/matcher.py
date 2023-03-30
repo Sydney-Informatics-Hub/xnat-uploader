@@ -185,6 +185,16 @@ class Matcher:
                 match = FileMatch(self, filepath, None)
                 match.status = "No DICOM metadata"
                 return match
+            if "EncapsulatedDocument" in dicom_values:
+                logger.debug(f"> DICOM is an encapsulated report {filepath}")
+                match = FileMatch(self, filepath, None)
+                match.status = "DICOM is an encapsulated report"
+                return match
+            if dicom_values["Modality"] == "SR":
+                logger.debug(f"> DICOM is a structured report {filepath}")
+                match = FileMatch(self, filepath, None)
+                match.status = "DICOM is an SR (structured report)"
+                return match
             return self.make_filematch(filepath, label, values, dicom_values)
         match = FileMatch(self, filepath, None)
         match.status = "unmatched"
@@ -343,6 +353,8 @@ class Matcher:
         """
         try:
             dc_meta = dcmread(file)
+            if "EncapsulatedDocument" in dc_meta:
+                return {"EncapsulatedDocument": True}
             values = {p: dc_meta.get(p) for p in self._dicom_params}
             return values
         except InvalidDicomError:
