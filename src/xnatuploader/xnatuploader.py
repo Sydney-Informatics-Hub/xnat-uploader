@@ -16,6 +16,7 @@ __version__ = version("xnatuploader")
 from openpyxl import load_workbook
 
 from xnatuploader.matcher import Matcher
+from xnatuploader.dicoms import dicom_extractor
 from xnatuploader.workbook import new_workbook, add_filesheet, load_config
 from xnatuploader.upload import Upload, trigger_pipelines
 
@@ -46,7 +47,7 @@ def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
 
     If the debug flag is true, only try to match DEBUG_MAX files
     ---
-    matcher: a PathMatcher
+    matcher: a Matcher
     root: pathlib.Path
     spreadsheet: pathlib.Path
     include_unmatched: boolean
@@ -466,7 +467,12 @@ debug messages
 
     config = load_config(args.spreadsheet)
 
-    matcher = Matcher(config, loglevel=loglevel)
+    matcher = Matcher(
+        patterns=config["paths"],
+        mappings=config["mappings"],
+        file_extractor=dicom_extractor,
+        loglevel=loglevel,
+    )
 
     if args.operation == "scan":
         scan(

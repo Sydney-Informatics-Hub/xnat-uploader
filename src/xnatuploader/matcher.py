@@ -2,6 +2,7 @@ import re
 import logging
 from pydicom import dcmread
 from pydicom.errors import InvalidDicomError
+from collections import UserDict
 
 XNAT_HIERARCHY = ["Subject", "Session", "Dataset"]
 DICOM_PARAMS = [
@@ -20,6 +21,10 @@ class RecipeException(Exception):
     pass
 
 
+class ExtractException(Exception):
+    pass
+
+
 class Matcher:
     """
     A Matcher is a set of recipes for matching against filepaths and mappings
@@ -29,28 +34,36 @@ class Matcher:
     to the parameters captured in the recipes)
     """
 
-    def __init__(self, config, loglevel="WARNING"):
+    def __init__(
+        self,
+        patterns=[],
+        mappings=[],
+        params=[],
+        file_extractor=None,
+        loglevel="WARNING",
+    ):
         """
-        config: dict with "paths" and "mappings"
+        patterns: { str: [ str ] } of path patterns
+        mappings: { str: str } of metadata values to captured params
+        file_extractor: fn or None
+        log_level: str
         """
         logger.setLevel(loglevel)
         logch = logging.StreamHandler()
         logch.setLevel(loglevel.upper())
         logger.addHandler(logch)
-        self.parse_recipes(config["paths"])
-        self.mappings = config["mappings"]
+        self.parse_recipes(patterns)
+        self.mappings = mappings
         self._headers = None
-        self._dicom_params = set(DICOM_PARAMS)
         for k, vs in self.mappings.items():
-            for v in vs:
-                if v[:5] == "DICOM":
-                    self._dicom_params.add(v[6:])
-                elif v not in self.params:
-                    raise Exception(
-                        f"Value {v} in mapping for {k} not defined in a path"
-                    )
-        if set(self.mappings.keys()) != set(XNAT_HIERARCHY):
-            raise Exception(f"Must have mappings for each of {XNAT_HIERARCHY}")
+            pass  # fixme
+            # for v in vs:
+            #     if v[:5] == "DICOM":
+            #         self._dicom_params.add(v[6:])
+            #     elif v not in self.params:
+            #         raise Exception(
+            #             f"Value {v} in mapping for {k} not defined in a path"
+            #         )
 
     @property
     def headers(self):
@@ -383,7 +396,7 @@ class Matcher:
         return xnat_params
 
 
-class FileMatch:
+class FileMatch(UserDict):
     """
     Represents a file, which may or may not have been successfully matched.
     Used as the return value from Matcher.match and as the result of loading
@@ -408,6 +421,8 @@ class FileMatch:
         self._columns = None
         self._status = None
         self._selected = None
+
+    #    def __getitem__:
 
     @property
     def columns(self, refresh=False):
@@ -478,6 +493,8 @@ class FileMatch:
         if dicom_values is not None:
             self.dicom_values = dicom_values
             self._columns = None
+
+    # all of the below needs to go
 
     @property
     def subject(self):
