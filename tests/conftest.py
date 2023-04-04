@@ -16,11 +16,16 @@ def test_files():
         },
         "bad_paths": {
             "dir": fixtures_dir / "bad_paths",
-            "config": fixtures_dir / "config_bad_paths.json",
+            "config": fixtures_dir / "config_basic.json",
+        },
+        "secret_pdf": {
+            "dir": fixtures_dir / "secret_pdf",
+            "config_excel": fixtures_dir / "basic_init.xlsx",
+            "scanned_excel": fixtures_dir / "secret_pdf_scanned.xlsx",
         },
         "sanitisation": {
             "dir": fixtures_dir / "sanitisation",
-            "config": fixtures_dir / "config_bad_paths.json",
+            "config": fixtures_dir / "config_basic.json",
         },
     }
 
