@@ -115,6 +115,7 @@ def xnat_connection():
     ],
 )
 def matcher_case(request):
+    FIELDS = ["Subject", "Session", "Dataset"]
     MAPPINGS = {
         "Subject": ["ID"],
         "Session": ["DDDDDDDD"],
@@ -208,5 +209,5 @@ def matcher_case(request):
         },
     }
     case = CASES[request.param]
-    matcher = Matcher({"paths": {"test": case["patterns"]}, "mappings": MAPPINGS})
+    matcher = Matcher({"test": case["patterns"]}, MAPPINGS, FIELDS)
     return matcher, case

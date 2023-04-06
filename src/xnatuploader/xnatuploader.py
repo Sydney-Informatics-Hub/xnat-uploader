@@ -72,12 +72,12 @@ def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
             if filematch.success:
                 matched += 1
                 logger.debug(f"Matched {filematch.file}")
-                ws.append(filematch.columns)
+                ws.append(filematch.columns())
             else:
                 if include_unmatched:
                     unmatched += 1
-                    filematch.load_dicom()
-                    ws.append(filematch.columns)
+                    # filematch.load_dicom() #fixme
+                    ws.append(filematch.columns())
     if include_unmatched:
         logger.info(
             f"Saved {matched} matching files and {unmatched} non-matching files to {spreadsheet}"

@@ -1,18 +1,6 @@
 import re
 import logging
-from pydicom import dcmread
-from pydicom.errors import InvalidDicomError
-from collections import UserDict
 
-XNAT_HIERARCHY = ["Subject", "Session", "Dataset"]
-DICOM_PARAMS = [
-    "Modality",
-    "StudyDescription",
-    "StudyDate",
-    "Manufacturer",
-    "ManufacturerModelName",
-    "StationName",
-]
 
 logger = logging.getLogger(__name__)
 
@@ -27,24 +15,22 @@ class ExtractException(Exception):
 
 class Matcher:
     """
-    A Matcher is a set of recipes for matching against filepaths and mappings
-    which map the captured value to XNAT parameters. It's used to perform
-    the matching, returning FileMatch objects, and also has methods which are
-    used to get headers for the spreadsheets (since these will vary according
-    to the parameters captured in the recipes)
+    A Matcher is a set of patterns for matching against filepaths and mappings
+    which map the captured value to field values. It's used to perform
+    the matching, returning FileMatch objects.
+
+    file_extractor is a function which does application-specific metadata
+    extraction: it's up to the calling code to make sure that the values it
+    sets are coordinated with the values extracted by the patterns and mappings
     """
 
     def __init__(
-        self,
-        patterns=[],
-        mappings=[],
-        params=[],
-        file_extractor=None,
-        loglevel="WARNING",
+        self, patterns, mappings, fields, file_extractor=None, loglevel="WARNING"
     ):
         """
         patterns: { str: [ str ] } of path patterns
-        mappings: { str: str } of metadata values to captured params
+        mappings: { str: str } of metadata values to captured fields
+        fields: list of fields to include in the spreadsheet
         file_extractor: fn or None
         log_level: str
         """
@@ -52,18 +38,17 @@ class Matcher:
         logch = logging.StreamHandler()
         logch.setLevel(loglevel.upper())
         logger.addHandler(logch)
-        self.parse_recipes(patterns)
         self.mappings = mappings
+        self.path_values = []
+        self.fields = fields
         self._headers = None
+        self.parse_recipes(patterns)
         for k, vs in self.mappings.items():
-            pass  # fixme
-            # for v in vs:
-            #     if v[:5] == "DICOM":
-            #         self._dicom_params.add(v[6:])
-            #     elif v not in self.params:
-            #         raise Exception(
-            #             f"Value {v} in mapping for {k} not defined in a path"
-            #         )
+            for v in vs:
+                if v not in self.path_values:
+                    raise Exception(
+                        f"Value {v} in mapping for {k} not defined in a path"
+                    )
 
     @property
     def headers(self):
@@ -74,14 +59,60 @@ class Matcher:
                 "Filename",
                 "Upload",
                 "Status",
-                "SessionLabel",
             ]
-            self._headers += XNAT_HIERARCHY + self.dicom_params + self.params
+            self._headers += self.fields
         return self._headers
 
-    @property
-    def dicom_params(self):
-        return sorted(self._dicom_params)
+    def make_filematch(self, file, label=None, values=None):
+        """
+        Map a dict of values (which will be captured from the paths or by
+        specialised metadata extraction) to metadata paramers and use
+        those to populate a FileMatch object.
+        If the mapping was unsuccessful, the FileMatch will have its success
+        flag switched off.
+        """
+        match = FileMatch(self, file, label, values)
+        try:
+            for field, value in self.map_values(values):
+                match[field] = value
+            match.success = True
+        except ValueError as e:
+            logger.warning(f"> xnat params error: {e}")
+            match.success = False
+            match.status = "unmatched"
+        match.selected = match.success
+        return match
+
+    def map_values(self, values):
+        """
+        Given a dict of values which has been captured from a filepath by a
+        pattern, returns the top-level metadata as defined by self.mappings
+
+        Raises: ValueError if any of the required values are missing
+
+        values: dict of { str: str }
+        --
+        returns: { str: str }
+        """
+        metadata = {}
+        for field, path_vars in self.mappings.items():
+            for v in path_vars:
+                if v not in values:
+                    raise ValueError(f"value {v} not found")
+                if values[v] is None:
+                    raise ValueError(f"value {v} is None")
+            metadata[field] = "".join([values[v] for v in path_vars])
+            metadata[field] = metadata[field].replace(" ", "_")
+        return metadata
+
+    def from_spreadsheet(self, row):
+        """
+        Build a FileMatch from a spreadsheet row, using the FileMatch.from_row
+        method
+        """
+        match = FileMatch(self)
+        match.from_row(row)
+        return match
 
     def parse_recipes(self, recipe_config):
         """
@@ -92,14 +123,16 @@ class Matcher:
         ---
         recipe_config: dict of { str: list of str  }
         """
-        self.params = []
+        self.path_values = []
         self.recipes = {}
         for label, patterns in recipe_config.items():
             self.recipes[label] = []
             for pattern in patterns:
-                params, regexp = self.parse_recipe(label, pattern)
+                path_values, regexp = self.parse_recipe(label, pattern)
                 self.recipes[label].append(regexp)
-                self.params += [p for p in params if p not in self.params]
+                self.path_values += [
+                    p for p in path_values if p not in self.path_values
+                ]
 
     def parse_recipe(self, label, recipe):
         """
@@ -191,55 +224,19 @@ class Matcher:
         """
         label, values = self.match_path(filepath.relative_to(root))
         if label:
-            logger.debug(f"> reading DICOM metadata {filepath}")
-            dicom_values = self.read_dicom(filepath)
-            if dicom_values is None:
-                logger.debug(f"> DICOM read failed {filepath}")
-                match = FileMatch(self, filepath, None)
-                match.status = "No DICOM metadata"
-                return match
-            if "EncapsulatedDocument" in dicom_values:
-                logger.debug(f"> DICOM is an encapsulated report {filepath}")
-                match = FileMatch(self, filepath, None)
-                match.status = "DICOM is an encapsulated report"
-                return match
-            if dicom_values["Modality"] == "SR":
-                logger.debug(f"> DICOM is a structured report {filepath}")
-                match = FileMatch(self, filepath, None)
-                match.status = "DICOM is an SR (structured report)"
-                return match
-            return self.make_filematch(filepath, label, values, dicom_values)
-        match = FileMatch(self, filepath, None)
+            if self.file_extractor is not None:
+                try:
+                    file_values = self.file_extractor(filepath)
+                except ExtractException as e:
+                    match = FileMatch(self, filepath)
+                    match.status = "unmatched"
+                    match.error = e
+                    return match
+                for field, value in file_values:
+                    values[field] = value  # file metadata can overwrite path
+            return self.make_filematch(filepath, label, values)
+        match = FileMatch(self, filepath)
         match.status = "unmatched"
-        return match
-
-    def make_filematch(self, file, label, path_values, dicom_values):
-        """
-        Map the values captured to XNAT hierarchy values and return an
-        FileMatch object. If the mapping was unsuccessful, the FileMatch will
-        have its success flag switched off
-        """
-        match = FileMatch(self, file, label)
-        match.values = path_values
-        match.dicom_values = dicom_values
-        try:
-            logger.debug("> mapping DICOM and path values to XNAT params")
-            match.xnat_params = self.map_values(path_values, dicom_values)
-            match.success = True
-        except ValueError as e:
-            logger.warning(f"> xnat params error: {e}")
-            match.success = False
-            match.status = "unmatched"
-        match.selected = match.success
-        return match
-
-    def from_spreadsheet(self, row):
-        """
-        Build a FileMatch from a spreadsheet row, using the FileMatch.from_row
-        method
-        """
-        match = FileMatch(self, None, None)
-        match.from_row(row)
         return match
 
     def match_path(self, filepath):
@@ -355,80 +352,38 @@ class Matcher:
                 return m
         return None
 
-    def read_dicom(self, file):
-        """
-        Try to parse the dicom metadata from the file and returns a dict
-        of all the values extracted for this Matcher's dicom_params
-        ---
-        file: a pathlib.Path
 
-        returns: { str: str }
-        """
-        try:
-            dc_meta = dcmread(file)
-            if "EncapsulatedDocument" in dc_meta:
-                return {"EncapsulatedDocument": True}
-            values = {p: dc_meta.get(p) for p in self._dicom_params}
-            return values
-        except InvalidDicomError:
-            return None
-
-    def map_values(self, path_values, dicom_values):
-        """
-        Given a dict of values which has been captured from a filepath by a recipe,
-        try to map it to the XNAT hierarchy.
-
-        Raises: ValueError if any of the required values are missing
-
-        values: dict of { str: str }
-        """
-        for k, v in dicom_values.items():
-            path_values["DICOM:" + k] = v
-        xnat_params = {}
-        for xnat_cat, path_vars in self.mappings.items():
-            for v in path_vars:
-                if v not in path_values:
-                    raise ValueError(f"value {v} not found")
-                if path_values[v] is None:
-                    raise ValueError(f"value {v} is None")
-            xnat_params[xnat_cat] = "".join([path_values[v] for v in path_vars])
-            xnat_params[xnat_cat] = xnat_params[xnat_cat].replace(" ", "_")
-        return xnat_params
-
-
-class FileMatch(UserDict):
+class FileMatch(dict):
     """
     Represents a file, which may or may not have been successfully matched.
-    Used as the return value from Matcher.match and as the result of loading
-    the log spreadsheet.
+    The values collected from paths and metadata extraction, and the metadata
+    parameters mapped form them, are available as dict lookups, like
+    filematch["Subject"].
     """
 
-    def __init__(self, matcher, file, label):
+    def __init__(self, matcher, file=None, label=None, values=None):
         self.matcher = matcher
         self.label = label
         self.file = str(file)
         self.filename = None
         if file is not None:
             self.filename = file.name
-        self.values = None
-        self.dicom_values = None
-        self.xnat_params = None
-        self.session_label = None
         self.error = None
         self.success = False
         self.status = None
         self.selected = None
         self._columns = None
-        self._status = None
-        self._selected = None
-
-    #    def __getitem__:
+        if values is not None:
+            for field, value in values.items():
+                self[field] = value
 
     @property
-    def columns(self, refresh=False):
+    def columns(self):
         """
         Returns this file's representation in the spreadsheet, which may or
-        may not be a successful match
+        may not be a successful match.
+
+        fields: [ str ]
         """
         if self._columns is not None:
             return self._columns
@@ -444,23 +399,12 @@ class FileMatch(UserDict):
                 self._columns += [""]
             else:
                 self._columns += [self.status]
-        self._columns += [self.session_label]
-        self._columns += self.dict_to_columns(XNAT_HIERARCHY, self.xnat_params)
-        self._columns += self.dict_to_columns(
-            self.matcher.dicom_params, self.dicom_values
-        )
-        self._columns += self.dict_to_columns(self.matcher.params, self.values)
+        self._columns += [self.get(v) for v in self.matcher.fields]
         return self._columns
-
-    def dict_to_columns(self, columns, values):
-        if values is None:
-            return ["" for _ in columns]
-        else:
-            return [values.get(c, "") for c in columns]
 
     def from_row(self, row):
         """
-        Read a row from the spreadsheet and populate the values required to
+        Read a row from a spreadsheet and populate the values required to
         upload.
         """
         self.label = row[0]
@@ -468,80 +412,5 @@ class FileMatch(UserDict):
         self.filename = row[2]
         self.selected = row[3] == "Y"
         self.status = row[4]
-        self.session_label = row[5]
-        self.xnat_params = {
-            "Subject": row[6],
-            "Session": row[7],
-            "Dataset": row[8],
-        }
-        self.dicom_values = {}
-        c = 9
-        for p in self.matcher.dicom_params:
-            self.dicom_values[p] = row[c]
-            c += 1
-        self.values = {}
-        for p in self.matcher.params:
-            self.values[p] = row[c]
-            c += 1
-
-    def load_dicom(self):
-        """
-        Utility method used to load the dicom metadata for an umatched file
-        when debugging
-        """
-        dicom_values = self.matcher.read_dicom(self.file)
-        if dicom_values is not None:
-            self.dicom_values = dicom_values
-            self._columns = None
-
-    # all of the below needs to go
-
-    @property
-    def subject(self):
-        if self.xnat_params is not None:
-            return self.xnat_params["Subject"]
-        else:
-            return None
-
-    @property
-    def session(self):
-        if self.xnat_params is not None:
-            return self.xnat_params["Session"]
-        else:
-            return None
-
-    @property
-    def dataset(self):
-        if self.xnat_params is not None:
-            return self.xnat_params["Dataset"]
-        else:
-            return None
-
-    @property
-    def study_date(self):
-        if self.session is not None:
-            return self.session
-        if self.dicom_values is not None:
-            return self.dicom_values["StudyDate"]
-        return ""
-
-    @property
-    def modality(self):
-        if self.dicom_values is not None:
-            return self.dicom_values["Modality"]
-        else:
-            return "OT"  # DICOM code for "Other"
-
-    @property
-    def manufacturer(self):
-        if self.dicom_values is not None:
-            return self.dicom_values["Manufacturer"]
-        else:
-            return None
-
-    @property
-    def model(self):
-        if self.dicom_values is not None:
-            return self.dicom_values["ManufacturerModelName"]
-        else:
-            return None
+        for field, value in zip(self.matcher.fields, row[5:]):
+            self[field] = value
