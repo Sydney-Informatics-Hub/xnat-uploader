@@ -3,7 +3,7 @@ import json
 from openpyxl import load_workbook
 from pathlib import Path
 
-from xnatuploader.matcher import Matcher
+from xnatuploader.matcher import Matcher, XNATFileMatch
 from xnatuploader.dicoms import dicom_extractor
 from xnatuploader.xnatuploader import scan, collate_uploads
 from xnatuploader.workbook import load_config, new_workbook
@@ -23,7 +23,11 @@ def test_scan(tmp_path, test_files):
     fileset = test_files["basic"]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(
-        config["paths"], config["mappings"], fileset["headers"], dicom_extractor
+        config["paths"],
+        config["mappings"],
+        fileset["headers"],
+        dicom_extractor,
+        XNATFileMatch,
     )
     scanned = tmp_path / "scanned.xlsx"
     new_workbook(scanned)
@@ -38,7 +42,11 @@ def test_collation(tmp_path, test_files, uploads_dict):
     fileset = test_files["basic"]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(
-        config["paths"], config["mappings"], fileset["headers"], dicom_extractor
+        config["paths"],
+        config["mappings"],
+        fileset["headers"],
+        dicom_extractor,
+        XNATFileMatch,
     )
     log = tmp_path / "log.xlsx"
     new_workbook(log)
@@ -67,7 +75,11 @@ def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
     with open(config_file, "r") as fh:
         config = json.load(fh)
     matcher = Matcher(
-        config["paths"], config["mappings"], fileset["headers"], dicom_extractor
+        config["paths"],
+        config["mappings"],
+        fileset["headers"],
+        dicom_extractor,
+        XNATFileMatch,
     )
     logger.warning(f"Testing santisation in {fileset}")
     log = tmp_path / "log.xlsx"
@@ -96,7 +108,11 @@ def test_collation_skips(tmp_path, test_files, uploads_dict):
     fileset = test_files["basic"]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(
-        config["paths"], config["mappings"], fileset["headers"], dicom_extractor
+        config["paths"],
+        config["mappings"],
+        fileset["headers"],
+        dicom_extractor,
+        XNATFileMatch,
     )
     log = tmp_path / "log.xlsx"
     new_workbook(log)
@@ -138,7 +154,11 @@ def test_secret_pdfs(tmp_path, test_files):
     fileset = test_files["secret_pdf"]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(
-        config["paths"], config["mappings"], fileset["headers"], dicom_extractor
+        config["paths"],
+        config["mappings"],
+        fileset["headers"],
+        dicom_extractor,
+        XNATFileMatch,
     )
     scanned = tmp_path / "scanned.xlsx"
     new_workbook(scanned)

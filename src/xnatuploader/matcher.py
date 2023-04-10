@@ -5,6 +5,114 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class FileMatch(dict):
+    """
+    Represents a file, which may or may not have been successfully matched.
+    The values collected from paths and metadata extraction, and the metadata
+    parameters mapped form them, are available as dict lookups, like
+    filematch["Subject"].
+    """
+
+    def __init__(self, matcher, file=None, label=None, values=None):
+        self.matcher = matcher
+        self.label = label
+        self.file = str(file)
+        self.filename = None
+        if file is not None:
+            self.filename = file.name
+        self.error = None
+        self.success = False
+        self.status = None
+        self.selected = None
+        self._columns = None
+        if values is not None:
+            for field, value in values.items():
+                self[field] = value
+
+    @property
+    def columns(self):
+        """
+        Returns this file's representation in the spreadsheet, which may or
+        may not be a successful match.
+
+        fields: [ str ]
+        """
+        if self._columns is not None:
+            return self._columns
+        self._columns = [self.label, self.file, self.filename]
+        if self.selected:
+            self._columns += ["Y"]
+        else:
+            self._columns += ["N"]
+        if self.error is not None:
+            self._columns += [self.error]
+        else:
+            if self.status is None:
+                self._columns += [""]
+            else:
+                self._columns += [self.status]
+        self._columns += [self.get(v) for v in self.matcher.fields]
+        return self._columns
+
+    def from_row(self, row):
+        """
+        Read a row from a spreadsheet and populate the values required to
+        upload.
+        """
+        self.label = row[0]
+        self.file = row[1]
+        self.filename = row[2]
+        self.selected = row[3] == "Y"
+        self.status = row[4]
+        for field, value in zip(self.matcher.fields, row[5:]):
+            self[field] = value
+
+
+class XNATFileMatch(FileMatch):
+    """
+    Sublass of FileMatch which provides getters and setters for xnat-specific
+    metadata.
+    """
+
+    # def load_dicom(self):
+    #     """
+    #     Utility method used to load the dicom metadata for an umatched file
+    #     when debugging
+    #     """
+    #     dicom_values = self.matcher.read_dicom(self.file)
+    #     if dicom_values is not None:
+    #         self.dicom_values = dicom_values
+    #         self._columns = None
+
+    @property
+    def subject(self):
+        return self.get("Subject", None)
+
+    @property
+    def session(self):
+        return self.get("Session", None)
+
+    @property
+    def dataset(self):
+        return self.get("Dataset", None)
+
+    @property
+    def study_date(self):
+        return self.get("StudyDate", None)
+
+    @property
+    def modality(self):
+        return self.get("Modality", None)
+
+    @property
+    def manufacturer(self):
+        return self.get("Manufacturer", None)
+
+    @property
+    def model(self):
+        return self.get("ManufacturerModelName", None)
+
+
 class RecipeException(Exception):
     pass
 
@@ -25,7 +133,13 @@ class Matcher:
     """
 
     def __init__(
-        self, patterns, mappings, fields, file_extractor=None, loglevel="WARNING"
+        self,
+        patterns,
+        mappings,
+        fields,
+        file_extractor=None,
+        match_class=FileMatch,
+        loglevel="WARNING",
     ):
         """
         patterns: { str: [ str ] } of path patterns
@@ -40,6 +154,7 @@ class Matcher:
         logger.addHandler(logch)
         self.mappings = mappings
         self.file_extractor = file_extractor
+        self.match_class = match_class
         self.fields = fields
         self._headers = None
         self.path_values = []  # note this is for config validation FIXME
@@ -66,7 +181,7 @@ class Matcher:
         If the mapping was unsuccessful, the FileMatch will have its success
         flag switched off.
         """
-        match = FileMatch(self, file, label, values)
+        match = self.match_class(self, file, label, values)
         try:
             for field, value in self.map_values(values).items():
                 match[field] = value
@@ -105,7 +220,7 @@ class Matcher:
         Build a FileMatch from a spreadsheet row, using the FileMatch.from_row
         method
         """
-        match = FileMatch(self)
+        match = self.match_class(self)
         match.from_row(row)
         return match
 
@@ -222,14 +337,14 @@ class Matcher:
                 try:
                     file_values = self.file_extractor(filepath)
                 except ExtractException as e:
-                    match = FileMatch(self, filepath)
+                    match = self.match_class(self, filepath)
                     match.status = "unmatched"
                     match.error = str(e)
                     return match
                 for field, value in file_values.items():
                     values[field] = value  # file metadata can overwrite path
             return self.make_filematch(filepath, label, values)
-        match = FileMatch(self, filepath)
+        match = self.match_class(self, filepath)
         match.status = "unmatched"
         return match
 
@@ -345,78 +460,3 @@ class Matcher:
             if len(dirs) == 1:
                 return m
         return None
-
-
-# Refactoring notes:
-# maybe subclass FileMatch to give utility getter methods which are specific
-# to XNAT like filematch.subject filematch.modality etc?
-
-
-class FileMatch(dict):
-    """
-    Represents a file, which may or may not have been successfully matched.
-    The values collected from paths and metadata extraction, and the metadata
-    parameters mapped form them, are available as dict lookups, like
-    filematch["Subject"].
-    """
-
-    def __init__(self, matcher, file=None, label=None, values=None):
-        self.matcher = matcher
-        self.label = label
-        self.file = str(file)
-        self.filename = None
-        if file is not None:
-            self.filename = file.name
-        self.error = None
-        self.success = False
-        self.status = None
-        self.selected = None
-        self._columns = None
-        if values is not None:
-            for field, value in values.items():
-                self[field] = value
-
-    @property
-    def columns(self):
-        """
-        Returns this file's representation in the spreadsheet, which may or
-        may not be a successful match.
-
-        fields: [ str ]
-        """
-        if self._columns is not None:
-            return self._columns
-        self._columns = [self.label, self.file, self.filename]
-        if self.selected:
-            self._columns += ["Y"]
-        else:
-            self._columns += ["N"]
-        if self.error is not None:
-            self._columns += [self.error]
-        else:
-            if self.status is None:
-                self._columns += [""]
-            else:
-                self._columns += [self.status]
-        self._columns += [self.get(v) for v in self.matcher.fields]
-        return self._columns
-
-    def from_row(self, row):
-        """
-        Read a row from a spreadsheet and populate the values required to
-        upload.
-        """
-        self.label = row[0]
-        self.file = row[1]
-        self.filename = row[2]
-        self.selected = row[3] == "Y"
-        self.status = row[4]
-        for field, value in zip(self.matcher.fields, row[5:]):
-            self[field] = value
-
-
-class XNATFileMatch(FileMatch):
-    """
-    Sublass of FileMatch which provides getters and setters for xnat-specific
-    metadata.
-    """
