@@ -4,6 +4,7 @@ from openpyxl import load_workbook
 from pathlib import Path
 
 from xnatuploader.matcher import Matcher
+from xnatuploader.dicoms import dicom_extractor
 from xnatuploader.xnatuploader import scan, collate_uploads
 from xnatuploader.workbook import load_config, new_workbook
 
@@ -21,7 +22,9 @@ def assert_worksheets_equal(expect, got):
 def test_scan(tmp_path, test_files):
     fileset = test_files["basic"]
     config = load_config(fileset["config_excel"])
-    matcher = Matcher(config)
+    matcher = Matcher(
+        config["paths"], config["mappings"], fileset["headers"], dicom_extractor
+    )
     scanned = tmp_path / "scanned.xlsx"
     new_workbook(scanned)
     scan(matcher, Path(fileset["dir"]), scanned, include_unmatched=True)
@@ -34,7 +37,9 @@ def test_scan(tmp_path, test_files):
 def test_collation(tmp_path, test_files, uploads_dict):
     fileset = test_files["basic"]
     config = load_config(fileset["config_excel"])
-    matcher = Matcher(config)
+    matcher = Matcher(
+        config["paths"], config["mappings"], fileset["headers"], dicom_extractor
+    )
     log = tmp_path / "log.xlsx"
     new_workbook(log)
     scan(matcher, Path(fileset["dir"]), log)
@@ -61,7 +66,9 @@ def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
     config_file = fileset["config"]
     with open(config_file, "r") as fh:
         config = json.load(fh)
-    matcher = Matcher(config)
+    matcher = Matcher(
+        config["paths"], config["mappings"], fileset["headers"], dicom_extractor
+    )
     logger.warning(f"Testing santisation in {fileset}")
     log = tmp_path / "log.xlsx"
     new_workbook(log)
@@ -88,7 +95,9 @@ def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
 def test_collation_skips(tmp_path, test_files, uploads_dict):
     fileset = test_files["basic"]
     config = load_config(fileset["config_excel"])
-    matcher = Matcher(config)
+    matcher = Matcher(
+        config["paths"], config["mappings"], fileset["headers"], dicom_extractor
+    )
     log = tmp_path / "log.xlsx"
     new_workbook(log)
     scan(matcher, Path(fileset["dir"]), log)
@@ -128,7 +137,9 @@ def test_collation_skips(tmp_path, test_files, uploads_dict):
 def test_secret_pdfs(tmp_path, test_files):
     fileset = test_files["secret_pdf"]
     config = load_config(fileset["config_excel"])
-    matcher = Matcher(config)
+    matcher = Matcher(
+        config["paths"], config["mappings"], fileset["headers"], dicom_extractor
+    )
     scanned = tmp_path / "scanned.xlsx"
     new_workbook(scanned)
     scan(matcher, Path(fileset["dir"]), scanned, include_unmatched=True)

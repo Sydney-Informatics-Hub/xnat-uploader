@@ -39,16 +39,11 @@ class Matcher:
         logch.setLevel(loglevel.upper())
         logger.addHandler(logch)
         self.mappings = mappings
-        self.path_values = []
+        self.file_extractor = file_extractor
         self.fields = fields
         self._headers = None
+        self.path_values = []  # note this is for config validation FIXME
         self.parse_recipes(patterns)
-        for k, vs in self.mappings.items():
-            for v in vs:
-                if v not in self.path_values:
-                    raise Exception(
-                        f"Value {v} in mapping for {k} not defined in a path"
-                    )
 
     @property
     def headers(self):
@@ -73,7 +68,7 @@ class Matcher:
         """
         match = FileMatch(self, file, label, values)
         try:
-            for field, value in self.map_values(values):
+            for field, value in self.map_values(values).items():
                 match[field] = value
             match.success = True
         except ValueError as e:
@@ -123,7 +118,6 @@ class Matcher:
         ---
         recipe_config: dict of { str: list of str  }
         """
-        self.path_values = []
         self.recipes = {}
         for label, patterns in recipe_config.items():
             self.recipes[label] = []
@@ -230,9 +224,9 @@ class Matcher:
                 except ExtractException as e:
                     match = FileMatch(self, filepath)
                     match.status = "unmatched"
-                    match.error = e
+                    match.error = str(e)
                     return match
-                for field, value in file_values:
+                for field, value in file_values.items():
                     values[field] = value  # file metadata can overwrite path
             return self.make_filematch(filepath, label, values)
         match = FileMatch(self, filepath)
@@ -353,6 +347,11 @@ class Matcher:
         return None
 
 
+# Refactoring notes:
+# maybe subclass FileMatch to give utility getter methods which are specific
+# to XNAT like filematch.subject filematch.modality etc?
+
+
 class FileMatch(dict):
     """
     Represents a file, which may or may not have been successfully matched.
@@ -414,3 +413,10 @@ class FileMatch(dict):
         self.status = row[4]
         for field, value in zip(self.matcher.fields, row[5:]):
             self[field] = value
+
+
+class XNATFileMatch(FileMatch):
+    """
+    Sublass of FileMatch which provides getters and setters for xnat-specific
+    metadata.
+    """

@@ -72,12 +72,12 @@ def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
             if filematch.success:
                 matched += 1
                 logger.debug(f"Matched {filematch.file}")
-                ws.append(filematch.columns())
+                ws.append(filematch.columns)
             else:
                 if include_unmatched:
                     unmatched += 1
                     # filematch.load_dicom() #fixme
-                    ws.append(filematch.columns())
+                    ws.append(filematch.columns)
     if include_unmatched:
         logger.info(
             f"Saved {matched} matching files and {unmatched} non-matching files to {spreadsheet}"
@@ -265,9 +265,9 @@ def collate_uploads(project_id, files):
                 logger.debug(f"skipping file already uploaded {file.file}")
                 skip.append(file)
             else:
-                if file.subject not in subjects:
-                    subjects[file.subject] = []
-                subjects[file.subject].append(file)
+                if file["Subject"] not in subjects:
+                    subjects[file["Subject"]] = []
+                subjects[file["Subject"]].append(file)
     uploads = {}
     for subject_id, files in subjects.items():
         dates = sorted(set([file.study_date for file in files]))
