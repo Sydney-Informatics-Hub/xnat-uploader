@@ -4,6 +4,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# TODO- what to do about the DICOM:StudyDate v StudyDate stuff? I want to keep
+# the DICOM prefixes so that the user's spreadsheets still work - maybe handle
+# this in the subclass?
+
 
 class FileMatch(dict):
     """
@@ -66,51 +70,6 @@ class FileMatch(dict):
         self.status = row[4]
         for field, value in zip(self.matcher.fields, row[5:]):
             self[field] = value
-
-
-class XNATFileMatch(FileMatch):
-    """
-    Sublass of FileMatch which provides getters and setters for xnat-specific
-    metadata.
-    """
-
-    # def load_dicom(self):
-    #     """
-    #     Utility method used to load the dicom metadata for an umatched file
-    #     when debugging
-    #     """
-    #     dicom_values = self.matcher.read_dicom(self.file)
-    #     if dicom_values is not None:
-    #         self.dicom_values = dicom_values
-    #         self._columns = None
-
-    @property
-    def subject(self):
-        return self.get("Subject", None)
-
-    @property
-    def session(self):
-        return self.get("Session", None)
-
-    @property
-    def dataset(self):
-        return self.get("Dataset", None)
-
-    @property
-    def study_date(self):
-        return self.get("StudyDate", None)
-
-    @property
-    def modality(self):
-        return self.get("Modality", None)
-
-    @property
-    def manufacturer(self):
-        return self.get("Manufacturer", None)
-
-    @property
-    def model(self):
-        return self.get("ManufacturerModelName", None)
 
 
 class RecipeException(Exception):
@@ -187,7 +146,7 @@ class Matcher:
                 match[field] = value
             match.success = True
         except ValueError as e:
-            logger.warning(f"> xnat params error: {e}")
+            logger.warning(f"Mapping error: {e}")
             match.success = False
             match.status = "unmatched"
         match.selected = match.success
