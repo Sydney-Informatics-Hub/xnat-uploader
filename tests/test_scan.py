@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from xnatuploader.matcher import Matcher
-from xnatuploader.dicoms import dicom_extractor, XNATFileMatch
+from xnatuploader.dicoms import dicom_extractor, XNATFileMatch, SPREADSHEET_FIELDS
 from xnatuploader.xnatuploader import scan, collate_uploads
 from xnatuploader.workbook import load_config, new_workbook
 
@@ -26,7 +26,7 @@ def test_scan(tmp_path, test_files):
     matcher = Matcher(
         config["paths"],
         config["mappings"],
-        fileset["headers"],
+        SPREADSHEET_FIELDS,
         dicom_extractor,
         XNATFileMatch,
     )

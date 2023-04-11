@@ -55,7 +55,7 @@ class FileMatch(dict):
                 self._columns += [""]
             else:
                 self._columns += [self.status]
-        self._columns += [self.get(v) for v in self.matcher.fields]
+        self._columns += [self.get(v) for v in self.matcher.headers[5:]]
         return self._columns
 
     def from_row(self, row):
@@ -68,7 +68,7 @@ class FileMatch(dict):
         self.filename = row[2]
         self.selected = row[3] == "Y"
         self.status = row[4]
-        for field, value in zip(self.matcher.fields, row[5:]):
+        for field, value in zip(self.matcher.headers[5:], row[5:]):
             self[field] = value
 
 
@@ -101,9 +101,9 @@ class Matcher:
         loglevel="WARNING",
     ):
         """
-        patterns: { str: [ str ] } of path patterns
-        mappings: { str: str } of metadata values to captured fields
-        fields: list of fields to include in the spreadsheet
+        patterns: OrderedDict(str: str) of path patterns
+        mappings: OrderedDict(str: str) of metadata values to captured fields
+        fields: list of extra fields to include in the spreadsheet
         file_extractor: fn or None
         log_level: str
         """
@@ -116,7 +116,7 @@ class Matcher:
         self.match_class = match_class
         self.fields = fields
         self._headers = None
-        self.path_values = []  # note this is for config validation FIXME
+        self.path_values = []
         self.parse_recipes(patterns)
 
     @property
@@ -129,7 +129,8 @@ class Matcher:
                 "Upload",
                 "Status",
             ]
-            self._headers += self.fields
+            self._headers += list(self.mappings.keys())
+            self._headers += self.fields + self.path_values
         return self._headers
 
     def make_filematch(self, file, label=None, values=None):
@@ -150,6 +151,7 @@ class Matcher:
             match.success = False
             match.status = "unmatched"
         match.selected = match.success
+        logger.warn(f"Made match: {file} -> {match}")
         return match
 
     def map_values(self, values):

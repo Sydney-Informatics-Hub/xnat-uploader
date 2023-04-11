@@ -14,9 +14,6 @@ DICOM_PARAMS = [
 
 SPREADSHEET_FIELDS = [
     "SessionLabel",
-    "Subject",
-    "Session",
-    "Dataset",
     "DICOM:Manufacturer",
     "DICOM:ManufacturerModelName",
     "DICOM:Modality",

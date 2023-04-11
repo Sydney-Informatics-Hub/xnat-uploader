@@ -3,23 +3,6 @@ import pytest
 from pathlib import Path
 from xnatuploader.matcher import Matcher
 
-HEADERS = [
-    "SessionLabel",
-    "Subject",
-    "Session",
-    "Dataset",
-    "Manufacturer",
-    "ManufacturerModelName",
-    "Modality",
-    "StationName",
-    "StudyDate",
-    "StudyDescription",
-    "SubjectName",
-    "ID",
-    "Directory",
-    "filename",
-]
-
 
 @pytest.fixture
 def test_files():
@@ -30,23 +13,19 @@ def test_files():
             "config": fixtures_dir / "config_basic.json",
             "config_excel": fixtures_dir / "basic_init.xlsx",
             "scanned_excel": fixtures_dir / "basic_scanned.xlsx",
-            "headers": HEADERS,
         },
         "bad_paths": {
             "dir": fixtures_dir / "bad_paths",
             "config": fixtures_dir / "config_basic.json",
-            "headers": HEADERS,
         },
         "secret_pdf": {
             "dir": fixtures_dir / "secret_pdf",
             "config_excel": fixtures_dir / "basic_init.xlsx",
             "scanned_excel": fixtures_dir / "secret_pdf_scanned.xlsx",
-            "headers": HEADERS,
         },
         "sanitisation": {
             "dir": fixtures_dir / "sanitisation",
             "config": fixtures_dir / "config_basic.json",
-            "headers": HEADERS,
         },
     }
 
