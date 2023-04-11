@@ -40,7 +40,6 @@ def dicom_extractor(file):
 
     raises: DicomExtractException
     """
-    logger.debug(f"> reading DICOM metadata {file}")
     values = None
     dc_meta = None
     try:
@@ -63,15 +62,29 @@ class XNATFileMatch(FileMatch):
     metadata.
     """
 
-    # def load_dicom(self):
-    #     """
-    #     Utility method used to load the dicom metadata for an umatched file
-    #     when debugging
-    #     """
-    #     dicom_values = self.matcher.read_dicom(self.file)
-    #     if dicom_values is not None:
-    #         self.dicom_values = dicom_values
-    #         self._columns = None
+    def load_dicom(self):
+        """
+        Utility method used to load the dicom metadata for an umatched file
+        so that it can be written to the spreadsheet
+        """
+        try:
+            dicom_values = dicom_extractor(self.file)
+            if dicom_values is not None:
+                for key, value in dicom_values.items():
+                    self[key] = value
+        except ExtractException as e:
+            logger.debug(f"DICOM extraction failed: {e}")
+
+    # session_label gets constructed by the calling code in xnatuploader,
+    # so it gets a setter as well as a getter
+
+    @property
+    def session_label(self):
+        return self.get("SessionLabel", None)
+
+    @session_label.setter
+    def session_label(self, value):
+        self["SessionLabel"] = value
 
     @property
     def subject(self):

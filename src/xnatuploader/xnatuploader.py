@@ -76,7 +76,7 @@ def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
             else:
                 if include_unmatched:
                     unmatched += 1
-                    # filematch.load_dicom() #fixme
+                    filematch.load_dicom()
                     ws.append(filematch.columns)
     if include_unmatched:
         logger.info(
