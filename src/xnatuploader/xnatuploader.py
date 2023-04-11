@@ -16,7 +16,7 @@ __version__ = version("xnatuploader")
 from openpyxl import load_workbook
 
 from xnatuploader.matcher import Matcher
-from xnatuploader.dicoms import dicom_extractor, XNATFileMatch
+from xnatuploader.dicoms import dicom_extractor, XNATFileMatch, SPREADSHEET_FIELDS
 from xnatuploader.workbook import new_workbook, add_filesheet, load_config
 from xnatuploader.upload import Upload, trigger_pipelines
 
@@ -470,6 +470,7 @@ debug messages
     matcher = Matcher(
         patterns=config["paths"],
         mappings=config["mappings"],
+        fields=SPREADSHEET_FIELDS,
         file_extractor=dicom_extractor,
         match_class=XNATFileMatch,
         loglevel=loglevel,

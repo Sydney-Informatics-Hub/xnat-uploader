@@ -12,6 +12,19 @@ DICOM_PARAMS = [
     "StationName",
 ]
 
+SPREADSHEET_FIELDS = [
+    "SessionLabel",
+    "Subject",
+    "Session",
+    "Dataset",
+    "DICOM:Manufacturer",
+    "DICOM:ManufacturerModelName",
+    "DICOM:Modality",
+    "DICOM:StationName",
+    "DICOM:StudyDate",
+    "DICOM:StudyDescription",
+]
+
 logger = logging.getLogger(__name__)
 
 
