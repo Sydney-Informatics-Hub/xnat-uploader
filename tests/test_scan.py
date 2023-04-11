@@ -2,7 +2,6 @@ import logging
 import json
 from openpyxl import load_workbook
 from pathlib import Path
-import pytest
 
 from xnatuploader.matcher import Matcher
 from xnatuploader.dicoms import dicom_extractor, XNATFileMatch, SPREADSHEET_FIELDS
@@ -39,14 +38,13 @@ def test_scan(tmp_path, test_files):
     assert_worksheets_equal(expect_wb["Files"], got_wb["Files"])
 
 
-@pytest.mark.skip(reason="steps")
 def test_collation(tmp_path, test_files, uploads_dict):
     fileset = test_files["basic"]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(
         config["paths"],
         config["mappings"],
-        fileset["headers"],
+        SPREADSHEET_FIELDS,
         dicom_extractor,
         XNATFileMatch,
     )
@@ -71,7 +69,6 @@ def test_collation(tmp_path, test_files, uploads_dict):
     assert len(skipped) == uploads_dict["skipped"]
 
 
-@pytest.mark.skip(reason="steps")
 def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
     fileset = test_files["sanitisation"]
     config_file = fileset["config"]
@@ -80,7 +77,7 @@ def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
     matcher = Matcher(
         config["paths"],
         config["mappings"],
-        fileset["headers"],
+        SPREADSHEET_FIELDS,
         dicom_extractor,
         XNATFileMatch,
     )
@@ -107,14 +104,13 @@ def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
     assert len(skipped) == sanitised_dict["skipped"]
 
 
-@pytest.mark.skip(reason="steps")
 def test_collation_skips(tmp_path, test_files, uploads_dict):
     fileset = test_files["basic"]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(
         config["paths"],
         config["mappings"],
-        fileset["headers"],
+        SPREADSHEET_FIELDS,
         dicom_extractor,
         XNATFileMatch,
     )
@@ -154,14 +150,13 @@ def test_collation_skips(tmp_path, test_files, uploads_dict):
     assert uploads == upload_skipped
 
 
-@pytest.mark.skip(reason="steps")
 def test_secret_pdfs(tmp_path, test_files):
     fileset = test_files["secret_pdf"]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(
         config["paths"],
         config["mappings"],
-        fileset["headers"],
+        SPREADSHEET_FIELDS,
         dicom_extractor,
         XNATFileMatch,
     )

@@ -42,14 +42,14 @@ def dicom_extractor(file):
     """
     logger.debug(f"> reading DICOM metadata {file}")
     values = None
+    dc_meta = None
     try:
         dc_meta = dcmread(file)
-        values = {f"DICOM:{p}": dc_meta.get(p) for p in DICOM_PARAMS}
-        logger.warning(f"> values {values}")
     except InvalidDicomError:
         raise ExtractException("File is not a DICOM")
-    if "DICOM:EncapsulatedDocument" in values:
-        raise ExtractException("DICOM has an encapsulated document")
+    if dc_meta.get("EncapsulatedDocument"):
+        raise ExtractException("DICOM is an encapsulated report")
+    values = {f"DICOM:{p}": dc_meta.get(p) for p in DICOM_PARAMS}
     if "DICOM:Modality" not in values:
         raise ExtractException("DICOM has no modality")
     if values["DICOM:Modality"] == "SR":

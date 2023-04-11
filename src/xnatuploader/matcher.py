@@ -151,7 +151,6 @@ class Matcher:
             match.success = False
             match.status = "unmatched"
         match.selected = match.success
-        logger.warn(f"Made match: {file} -> {match}")
         return match
 
     def map_values(self, values):
