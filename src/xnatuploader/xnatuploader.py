@@ -282,13 +282,14 @@ def collate_uploads(project_id, files):
             session_scan = f"{session_label}:{scan_type}"
             if session_scan not in uploads:
                 uploads[session_scan] = Upload(
-                    session_label,
-                    subject_id,
-                    file.study_date,
-                    modality,
-                    scan_type,
-                    file.manufacturer,
-                    file.model,
+                    session_label=session_label,
+                    subject=subject_id,
+                    date=file.study_date,
+                    modality=modality,
+                    series_number=file.series_number,
+                    scan_type=scan_type,
+                    manufacturer=file.manufacturer,
+                    model=file.model,
                 )
             uploads[session_scan].add_file(file)
     return skip, uploads
