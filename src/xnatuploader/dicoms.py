@@ -101,6 +101,10 @@ class XNATFileMatch(FileMatch):
         return self.get("Dataset", None)
 
     @property
+    def series_number(self):
+        return self.get("DICOM:SeriesNumber", None)
+
+    @property
     def study_date(self):
         return self.get("DICOM:StudyDate", None)
 

@@ -56,34 +56,50 @@ def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
     logger.info(f"Loading {spreadsheet}")
     wb = load_workbook(spreadsheet)
     ws = add_filesheet(wb, matcher, debug)  # keeps old sheets if debug=True
-    matched = 0
-    unmatched = 0
     logger.info("Preparing file list")
-    files = sorted(
+    filepaths = sorted(
         [f for f in root.glob("**/*") if f.is_file() and f.name not in IGNORE_FILES]
     )
+    files = []
+    unmatched = []
     if debug:
-        files = files[:DEBUG_MAX]
+        filepaths = filepaths[:DEBUG_MAX]
     logger.info(f"Scanning directory {root}")
-    for file in tqdm(files):
-        if file.is_file():
-            logger.debug(f"Scanning {file}")
-            filematch = matcher.match(root, file)
-            if filematch.success:
-                matched += 1
-                logger.debug(f"Matched {filematch.file}")
-                ws.append(filematch.columns)
+    for filepath in tqdm(filepaths):
+        if filepath.is_file():
+            logger.debug(f"Scanning {filepath}")
+            file = matcher.match(root, filepath)
+            if file.success:
+                logger.debug(f"Matched {file.file}")
+                files.append(file)
             else:
                 if include_unmatched:
-                    unmatched += 1
-                    filematch.load_dicom()
-                    ws.append(filematch.columns)
+                    file.load_dicom()
+                    unmatched.append(file)
+
+    skips, uploads = collate_uploads(
+        files
+    )  # add session labels, check for multiple scan ids
+
+    ns = len(uploads)
+    nm = len(files)
+    num = len(unmatched)
+
     if include_unmatched:
         logger.info(
-            f"Saved {matched} matching files and {unmatched} non-matching files to {spreadsheet}"
+            f"Saving {ns} scans with {nm} matching files and {num} non-matching files to {spreadsheet}"
         )
     else:
-        logger.info(f"Saved {matched} matching files to {spreadsheet}")
+        logger.info(f"Saving {ns} scans with {nm} matching files to {spreadsheet}")
+
+    for session_scan, upload in tqdm(uploads.items(), desc="Scans"):
+        for file in upload.files:
+            ws.append(file.columns)
+
+    if include_unmatched:
+        for file in unmatched:
+            ws.append(file.columns)
+
     wb.save(spreadsheet)
 
 
@@ -127,7 +143,7 @@ def upload(
         else:
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
-    skip, uploads = collate_uploads(project, files)
+    skip, uploads = collate_uploads(files)
     csvout = get_csv_filename(spreadsheet)
     if test:
         dry_run(uploads)
@@ -242,14 +258,14 @@ The results are available as a CSV file: {csvout}
         )
 
 
-def collate_uploads(project_id, files):
+def collate_uploads(files):
     """
     Takes a list of files and collates them by subject (patient), visit
-    index (starting from the earliest) and scan type, returning a list of
-    files which have skipped or already uploaded and a dictionary
-    of Uploads keyed by {session_label}_{scan}
+    index (starting from the earliest), scan type, and (optionally) scan_id,
+    returning a list of files which have skipped or already uploaded and a dictionary
+    of Uploads keyed by {session_label}_{scan}_{scan_id}
+
     ---
-    project_id: str
     files: list of FileMatch
 
     returns: tuple of ( list of FileMatch, dict of str: Upload )

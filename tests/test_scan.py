@@ -51,7 +51,6 @@ def test_collation(tmp_path, test_files, uploads_dict):
     log = tmp_path / "log.xlsx"
     new_workbook(log)
     scan(matcher, Path(fileset["dir"]), log)
-    project_id = uploads_dict["project"]
     wb = load_workbook(log)
     ws = wb["Files"]
     header = True
@@ -62,7 +61,7 @@ def test_collation(tmp_path, test_files, uploads_dict):
         else:
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
-    skipped, uploads = collate_uploads(project_id, files)
+    skipped, uploads = collate_uploads(files)
     for session_scan, upload in uploads.items():
         uploads[session_scan] = [f.file for f in uploads[session_scan].files]
     assert uploads == uploads_dict["uploads"]
@@ -85,7 +84,6 @@ def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
     log = tmp_path / "log.xlsx"
     new_workbook(log)
     scan(matcher, Path(fileset["dir"]), log)
-    project_id = sanitised_dict["project"]
     wb = load_workbook(log)
     ws = wb["Files"]
     header = True
@@ -97,7 +95,7 @@ def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
     logger.warning(f"File list = {files}")
-    skipped, uploads = collate_uploads(project_id, files)
+    skipped, uploads = collate_uploads(files)
     for session_scan, upload in uploads.items():
         uploads[session_scan] = [f.file for f in uploads[session_scan].files]
     assert uploads == sanitised_dict["uploads"]
@@ -117,7 +115,6 @@ def test_collation_skips(tmp_path, test_files, uploads_dict):
     log = tmp_path / "log.xlsx"
     new_workbook(log)
     scan(matcher, Path(fileset["dir"]), log)
-    project_id = uploads_dict["project"]
     wb = load_workbook(log)
     ws = wb["Files"]
     header = True
@@ -135,7 +132,7 @@ def test_collation_skips(tmp_path, test_files, uploads_dict):
                     logger.warning(f"Skipping {matchfile.file}")
                     n += 1
             files.append(matchfile)
-    skip, uploads = collate_uploads(project_id, files)
+    skip, uploads = collate_uploads(files)
     assert len(skip) == uploads_dict["skipped"] + skip_n
     for session_scan, upload in uploads.items():
         uploads[session_scan] = [f.file for f in uploads[session_scan].files]

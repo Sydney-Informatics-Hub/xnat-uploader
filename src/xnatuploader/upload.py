@@ -36,7 +36,20 @@ class Upload:
         return f"{self.session_label}/{self.scan_type}"
 
     def add_file(self, file):
-        self.files.append(file)
+        """Add a file to this upload's file list. If the series number on the
+        file doesn't match the upload series number, doesn't add it and
+        logs an error"""
+        if file.series_number == self.series_number:
+            self.files.append(file)
+            return True
+        else:
+            logger.error(
+                f"""
+{self.session_label} {file.filename} series number {file.series_number} does not match
+first series number in scan ({self.series_number})
+"""
+            )
+            return False
 
     def start_upload(self, xnat_session, project):
         """Create a resource in the session for this scan"""
@@ -47,7 +60,7 @@ class Upload:
             resource_name="DICOM",
             project_id=project,
             subject_id=self.subject,
-            # scan_id=self.series_number,
+            scan_id=self.series_number,
             #            date=self.date,
             modality=self.modality,
             create_session=self.new_session,
