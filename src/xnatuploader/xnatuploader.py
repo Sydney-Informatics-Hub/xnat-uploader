@@ -77,9 +77,7 @@ def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
                     file.load_dicom()
                     unmatched.append(file)
 
-    skips, uploads = collate_uploads(
-        files
-    )  # add session labels, check for multiple scan ids
+    skips, uploads = collate_uploads(files)
 
     ns = len(uploads)
     nm = len(files)
@@ -292,7 +290,8 @@ def collate_uploads(files):
         for file in files:
             visit = visits[file.study_date]
             modality = file.modality
-            session_label = f"{subject_id}_{modality}{visit}"
+            scan_id = file.series_number
+            session_label = f"{subject_id}_{modality}{visit}_{scan_id}"
             file.session_label = session_label
             scan_type = clean_datasets[file.dataset]
             session_scan = f"{session_label}:{scan_type}"
@@ -302,7 +301,7 @@ def collate_uploads(files):
                     subject=subject_id,
                     date=file.study_date,
                     modality=modality,
-                    series_number=file.series_number,
+                    series_number=scan_id,
                     scan_type=scan_type,
                     manufacturer=file.manufacturer,
                     model=file.model,

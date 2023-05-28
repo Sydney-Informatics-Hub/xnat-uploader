@@ -45,8 +45,8 @@ class Upload:
         else:
             logger.error(
                 f"""
-{self.session_label} {file.filename} series number {file.series_number} does not match
-first series number in scan ({self.series_number})
+{self.session_label} {file.filename} series number {file.series_number} does
+not match series number in scan ({self.series_number})
 """
             )
             return False
@@ -117,6 +117,7 @@ first series number in scan ({self.series_number})
                     status[
                         file.file
                     ] = f"Digest mismatch {local_digest} {remote_digest}"
+                    logger.error(file.file + ": " + status[file.file])
                 else:
                     status[file.file] = "success"
         return status
