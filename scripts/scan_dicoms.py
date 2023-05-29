@@ -3,11 +3,10 @@
 from pydicom import dcmread
 from pathlib import Path
 
-DIR = "tests/fixtures/source/ROE^JANE-397829"
+DIR = "tests/fixtures/"
 
-for dicom in Path(DIR).glob("*.dcm"):
-    print(f"Reading {dicom.name}")
+for dicom in Path(DIR).glob("**/*.dcm"):
     dc = dcmread(dicom)
-    print(dc.Modality)
-    print(dc.StudyDescription)
-    print(dc.StudyDate)
+    print(
+        f"{dicom},{dc.Modality},{dc.StudyDate},{dc.StudyDescription},{dc.SeriesNumber}"
+    )

@@ -1,27 +1,29 @@
-# import xnatutils
 import xnatuploader.put
 import os.path
 import logging
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class Upload:
     """
     An Upload represents a session for a single patient and visit, which may
     have more than one file.
+
     """
 
-    def __init__(
-        self, session_label, subject, date, modality, scan_type, manufacturer, model
-    ):
-        self.session_label = session_label
-        self.subject = subject
-        self.modality = modality
-        self.date = date
-        self.scan_type = scan_type
-        self.manufacturer = manufacturer
-        self.model = model
+    session_label: str
+    subject: str
+    date: str
+    modality: str
+    series_number: str
+    scan_type: str
+    manufacturer: str
+    model: str
+
+    def __post_init__(self):
         self.new_session = True
         self.xnat_session = None
         self.files = []
@@ -34,7 +36,20 @@ class Upload:
         return f"{self.session_label}/{self.scan_type}"
 
     def add_file(self, file):
-        self.files.append(file)
+        """Add a file to this upload's file list. If the series number on the
+        file doesn't match the upload series number, doesn't add it and
+        logs an error"""
+        if file.series_number == self.series_number:
+            self.files.append(file)
+            return True
+        else:
+            logger.error(
+                f"""
+{self.session_label} {file.filename} series number {file.series_number} does
+not match series number in scan ({self.series_number})
+"""
+            )
+            return False
 
     def start_upload(self, xnat_session, project):
         """Create a resource in the session for this scan"""
@@ -45,6 +60,7 @@ class Upload:
             resource_name="DICOM",
             project_id=project,
             subject_id=self.subject,
+            scan_id=self.series_number,
             #            date=self.date,
             modality=self.modality,
             create_session=self.new_session,
@@ -101,6 +117,7 @@ class Upload:
                     status[
                         file.file
                     ] = f"Digest mismatch {local_digest} {remote_digest}"
+                    logger.error(file.file + ": " + status[file.file])
                 else:
                     status[file.file] = "success"
         return status
