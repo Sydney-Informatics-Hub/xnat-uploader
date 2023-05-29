@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.2]
 
+Bug fixes:
+
+- Scan id is now set to the DICOM ServiceNumber - if it's different, XNAT
+  creates a shadow record which won't be correctly deidentified
+
 Enhancements:
 
 - Refactored the code which extracts metadata from file paths and DICOMS - this
