@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2]
+
+Enhancements:
+
+- Refactored the code which extracts metadata from file paths and DICOMS - this
+  makes xnatuploader easier to maintain, and also separates the XNAT-specific
+  stuff from the file scanner, which means that it can later be spun off as
+  its own library for building lists of files which aren't DICOMs
+
 ## [1.1.1]
 
 Bug fixes:

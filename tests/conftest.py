@@ -37,7 +37,7 @@ def uploads_dict():
         "project": "Project",
         "skipped": 7,
         "uploads": {
-            "002304_CT1:Head_CT": [
+            "002304_CT1_3:Head_CT": [
                 str(
                     source_dir
                     / "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00000.dcm"
@@ -47,7 +47,7 @@ def uploads_dict():
                     / "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00001.dcm"
                 ),
             ],
-            "002304_CT1:Neck_CT": [
+            "002304_CT1_6168:Neck_CT": [
                 str(
                     source_dir
                     / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00000.dcm"
@@ -61,16 +61,16 @@ def uploads_dict():
                     / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00002.dcm"
                 ),
             ],
-            "397829_CT1:SomeCT": [
+            "397829_CT1_6168:SomeCT": [
                 str(source_dir / "ROE^JANE-397829/20190115/SomeCT/img-00000.dcm"),
             ],
-            "397829_CT2:SomeCT": [
+            "397829_CT2_6168:SomeCT": [
                 str(source_dir / "ROE^JANE-397829/20200623/SomeCT/img-00000.dcm"),
             ],
-            "397829_CT3:SomeCT": [
+            "397829_CT3_6168:SomeCT": [
                 str(source_dir / "ROE^JANE-397829/20210414/SomeCT/image-00000.dcm"),
             ],
-            "038945_CT1:X_Rays": [
+            "038945_CT1_6168:X_Rays": [
                 str(source_dir / "Smith^John-038945/20200303/X-Rays/img-00000.dcm"),
             ],
         },
@@ -84,13 +84,13 @@ def sanitised_dict():
         "project": "Project",
         "skipped": 0,
         "uploads": {
-            "99999_CT1:foo_bar": [
+            "99999_CT1_6168:foo_bar": [
                 str(source_dir / "johndoe-99999/20221122/foo(bar/image-00000.dcm"),
             ],
-            "99999_CT1:foo_bar2": [
+            "99999_CT1_6168:foo_bar2": [
                 str(source_dir / "johndoe-99999/20221122/foo,bar/image-00000.dcm"),
             ],
-            "99999_CT1:foo_bar3": [
+            "99999_CT1_6168:foo_bar3": [
                 str(source_dir / "johndoe-99999/20221122/foo_bar/image-00000.dcm"),
             ],
         },
@@ -115,6 +115,7 @@ def xnat_connection():
     ],
 )
 def matcher_case(request):
+    FIELDS = ["Subject", "Session", "Dataset"]
     MAPPINGS = {
         "Subject": ["ID"],
         "Session": ["DDDDDDDD"],
@@ -208,5 +209,5 @@ def matcher_case(request):
         },
     }
     case = CASES[request.param]
-    matcher = Matcher({"paths": {"test": case["patterns"]}, "mappings": MAPPINGS})
+    matcher = Matcher({"test": case["patterns"]}, MAPPINGS, FIELDS)
     return matcher, case

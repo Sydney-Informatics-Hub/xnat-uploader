@@ -9,6 +9,7 @@ from pathlib import Path
 
 from xnatuploader.xnatuploader import scan, upload
 from xnatuploader.matcher import Matcher
+from xnatuploader.dicoms import dicom_extractor, XNATFileMatch, SPREADSHEET_FIELDS
 from xnatuploader.workbook import new_workbook
 
 
@@ -17,8 +18,14 @@ def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_fil
     test_config = test_files[source_dir]["config"]
     test_dir = test_files[source_dir]["dir"]
     with open(test_config, "r") as fh:
-        config_json = json.load(fh)
-        matcher = Matcher(config_json)
+        config = json.load(fh)
+        matcher = Matcher(
+            config["paths"],
+            config["mappings"],
+            SPREADSHEET_FIELDS,
+            dicom_extractor,
+            XNATFileMatch,
+        )
     project = xnat_connection.classes.ProjectData(
         parent=xnat_connection,
         name="Test_" + source_dir,
@@ -96,8 +103,14 @@ def test_missing_file(xnat_connection, tmp_path, test_files):
     )
     basic = test_files["basic"]
     with open(basic["config"], "r") as fh:
-        config_json = json.load(fh)
-        matcher = Matcher(config_json)
+        config = json.load(fh)
+        matcher = Matcher(
+            config["paths"],
+            config["mappings"],
+            SPREADSHEET_FIELDS,
+            dicom_extractor,
+            XNATFileMatch,
+        )
     log_scanned = tmp_path / "log_scanned.xlsx"
     log_uploaded = tmp_path / "log_uploaded.xlsx"
     new_workbook(log_scanned)

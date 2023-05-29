@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles.alignment import Alignment
 
@@ -95,6 +96,11 @@ def add_filesheet(wb, matcher, debug):
 
 
 def load_config(excelfile):
+    """
+    Load config from the Configuration worksheet of the spreadsheet.
+    Each section is loaded into an OrderedDict - this is because order is
+    significant for building the columns in the spreadsheet.
+    """
     wb = load_workbook(excelfile)
     if "Configuration" not in wb:
         raise WorkbookError(f"No worksheet named 'Configuration' in {excelfile}")
@@ -108,7 +114,7 @@ def load_config(excelfile):
         var = row[1].value
         if var is not None and section is not None:
             if section not in config:
-                config[section] = {}
+                config[section] = OrderedDict()
             cells = [cell.value for cell in row[2:] if cell.value is not None]
             if section == "xnat":
                 config[section][var] = cells[0]
