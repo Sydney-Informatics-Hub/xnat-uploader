@@ -5,6 +5,7 @@ from xnatuploader.matcher import ExtractException, FileMatch
 
 DICOM_PARAMS = [
     "Modality",
+    "SeriesNumber",
     "StudyDescription",
     "StudyDate",
     "Manufacturer",
@@ -17,6 +18,7 @@ SPREADSHEET_FIELDS = [
     "DICOM:Manufacturer",
     "DICOM:ManufacturerModelName",
     "DICOM:Modality",
+    "DICOM:SeriesNumber",
     "DICOM:StationName",
     "DICOM:StudyDate",
     "DICOM:StudyDescription",
@@ -97,6 +99,10 @@ class XNATFileMatch(FileMatch):
     @property
     def dataset(self):
         return self.get("Dataset", None)
+
+    @property
+    def series_number(self):
+        return self.get("DICOM:SeriesNumber", None)
 
     @property
     def study_date(self):
