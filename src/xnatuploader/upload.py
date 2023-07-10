@@ -86,8 +86,13 @@ not match series number in scan ({self.series_number})
         with tempfile.TemporaryDirectory() as tempdir:
             for file in files:
                 fname = os.path.basename(file.file)
-                anonfile = Path(tempdir) / fname
-                anonymize(fname, anonfile, {}, True)  # FIXME trap this
+                anonfile = str(Path(tempdir) / fname)
+                try:
+                    logger.debug(f"Anonymizing {file.file} -> {anonfile}")
+                    anonymize(file.file, anonfile, {}, True)
+                except Exception as e:
+                    logger.error("Error while anonymizing {file.file}")
+                    logger.error(str(e))
                 if fname in self.resource.files:
                     if overwrite:
                         self.resource.files[fname].delete()
