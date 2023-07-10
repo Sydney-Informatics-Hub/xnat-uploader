@@ -1,6 +1,9 @@
 import xnatuploader.put
 import os.path
 import logging
+from pathlib import Path
+import tempfile
+from dicomanonymizer import anonymize
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -69,8 +72,9 @@ not match series number in scan ({self.series_number})
 
     def upload(self, files, overwrite=False):
         """
-        Upload a batch of files to the current resource and checks their
-        digests
+        Makes anonymised copies of a batch of files, uploads the anonymised
+        versions, checks the digests against the anonymised versions and then
+        cleans up. Returns a dict of success / error by the original filename
 
         Args:
             files: list of Matchfile
@@ -79,15 +83,18 @@ not match series number in scan ({self.series_number})
             dict of { str: str } with a status message, "success" or an error
         ---
         """
-        for file in files:
-            fname = os.path.basename(file.file)
-            if fname in self.resource.files:
-                if overwrite:
-                    self.resource.files[fname].delete()  # I am not sure if this is good
-            self.resource.upload(file.file, fname)
-        return self.check_digests(files)
+        with tempfile.TemporaryDirectory() as tempdir:
+            for file in files:
+                fname = os.path.basename(file.file)
+                anonfile = Path(tempdir) / fname
+                anonymize(fname, anonfile, {}, True)  # FIXME trap this
+                if fname in self.resource.files:
+                    if overwrite:
+                        self.resource.files[fname].delete()
+                self.resource.upload(anonfile, fname)
+            return self.check_digests(tempdir, files)
 
-    def check_digests(self, files):
+    def check_digests(self, tempdir, files):
         """Check the digests of a batch of files, and returns a hash-by-filename
         of success or failure
         """
@@ -104,6 +111,7 @@ not match series number in scan ({self.series_number})
         status = {}
         for file in files:
             xnat_filename = os.path.basename(file.file)
+            anonfile = Path(tempdir) / xnat_filename
             if xnat_filename not in digests:
                 status[
                     file.file
@@ -112,7 +120,7 @@ not match series number in scan ({self.series_number})
                 logger.error(digests)
             else:
                 remote_digest = digests[xnat_filename]
-                local_digest = xnatuploader.put.calculate_checksum(file.file)
+                local_digest = xnatuploader.put.calculate_checksum(anonfile)
                 if local_digest != remote_digest:
                     status[
                         file.file
