@@ -3,10 +3,12 @@ import os.path
 import logging
 from pathlib import Path
 import tempfile
-from dicomanonymizer import anonymize
+from dicomanonymizer import anonymize, keep
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+ANONRULES = {(0x0008, 0x0020): keep}
 
 
 @dataclass
@@ -89,10 +91,11 @@ not match series number in scan ({self.series_number})
                 anonfile = str(Path(tempdir) / fname)
                 try:
                     logger.debug(f"Anonymizing {file.file} -> {anonfile}")
-                    anonymize(file.file, anonfile, {}, True)
+                    anonymize(file.file, anonfile, ANONRULES, True)
                 except Exception as e:
-                    logger.error("Error while anonymizing {file.file}")
+                    logger.error(f"Error while anonymizing {file.file}")
                     logger.error(str(e))
+                    return
                 if fname in self.resource.files:
                     if overwrite:
                         self.resource.files[fname].delete()
