@@ -119,7 +119,10 @@ def load_config(excelfile):
                 config[section] = OrderedDict()
             cells = [cell.value for cell in row[2:] if cell.value is not None]
             if section == "xnat":
-                config[section][var] = cells[0]
+                try:
+                    config[section][var] = cells[0]
+                except IndexError:
+                    config[section][var] = None
             else:
                 config[section][var] = cells
     missing = [s for s in sections if s not in config]

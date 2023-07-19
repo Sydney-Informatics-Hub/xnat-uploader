@@ -183,12 +183,13 @@ def parse_allow_fields(allow_fields):
 
     rules = {}
 
-    for keyword in allow_fields.split(","):
-        try:
-            tag = Tag(keyword)
-            rules[(tag.group, tag.elem)] = keep
-        except ValueError:
-            raise ValueError(
-                f"Unknown DICOM keyword {keyword} in AllowFields configuration"
-            )
+    if allow_fields is not None:
+        for keyword in allow_fields.split(","):
+            try:
+                tag = Tag(keyword)
+                rules[(tag.group, tag.elem)] = keep
+            except ValueError:
+                raise ValueError(
+                    f"Unknown DICOM keyword {keyword} in AllowFields configuration"
+                )
     return rules
