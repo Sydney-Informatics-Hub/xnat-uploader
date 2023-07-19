@@ -64,6 +64,8 @@ def new_workbook(file):
     ws["C14"] = "Test001"
     ws["B15"] = "Server"
     ws["C15"] = "http://localhost:8080"
+    ws["B16"] = "AllowFields"
+    ws["C16"] = "AccessionNumber"
     wb.save(file)
 
 
@@ -117,7 +119,10 @@ def load_config(excelfile):
                 config[section] = OrderedDict()
             cells = [cell.value for cell in row[2:] if cell.value is not None]
             if section == "xnat":
-                config[section][var] = cells[0]
+                try:
+                    config[section][var] = cells[0]
+                except IndexError:
+                    config[section][var] = None
             else:
                 config[section][var] = cells
     missing = [s for s in sections if s not in config]

@@ -1,9 +1,15 @@
 import xnatuploader.put
 import os.path
 import logging
+from pathlib import Path
+import tempfile
+from pydicom.tag import Tag
+from dicomanonymizer import anonymize, keep
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+ANONRULES = {(0x0008, 0x0020): keep}
 
 
 @dataclass
@@ -67,27 +73,42 @@ not match series number in scan ({self.series_number})
             connection=xnat_session,
         )
 
-    def upload(self, files, overwrite=False):
+    def upload(self, files, overwrite=False, anon_rules=None):
         """
-        Upload a batch of files to the current resource and checks their
-        digests
+        Makes anonymised copies of a batch of files, uploads the anonymised
+        versions, checks the digests against the anonymised versions and then
+        cleans up. Returns a dict of success / error by the original filename
 
         Args:
             files: list of Matchfile
             overwrite: boolean
+            anon_rules: None or dict of anonymisation rules
         Returns:
             dict of { str: str } with a status message, "success" or an error
         ---
         """
-        for file in files:
-            fname = os.path.basename(file.file)
-            if fname in self.resource.files:
-                if overwrite:
-                    self.resource.files[fname].delete()  # I am not sure if this is good
-            self.resource.upload(file.file, fname)
-        return self.check_digests(files)
+        if anon_rules is None:
+            rules = {}
+        else:
+            rules = anon_rules
+        with tempfile.TemporaryDirectory() as tempdir:
+            for file in files:
+                fname = os.path.basename(file.file)
+                anon_file = str(Path(tempdir) / fname)
+                try:
+                    logger.debug(f"Anonymizing {file.file} -> {anon_file}")
+                    anonymize(file.file, anon_file, rules, True)
+                except Exception as e:
+                    logger.error(f"Error while anonymizing {file.file}")
+                    logger.error(str(e))
+                    return
+                if fname in self.resource.files:
+                    if overwrite:
+                        self.resource.files[fname].delete()
+                self.resource.upload(anon_file, fname)
+            return self.check_digests(tempdir, files)
 
-    def check_digests(self, files):
+    def check_digests(self, tempdir, files):
         """Check the digests of a batch of files, and returns a hash-by-filename
         of success or failure
         """
@@ -104,6 +125,7 @@ not match series number in scan ({self.series_number})
         status = {}
         for file in files:
             xnat_filename = os.path.basename(file.file)
+            anon_file = Path(tempdir) / xnat_filename
             if xnat_filename not in digests:
                 status[
                     file.file
@@ -112,7 +134,7 @@ not match series number in scan ({self.series_number})
                 logger.error(digests)
             else:
                 remote_digest = digests[xnat_filename]
-                local_digest = xnatuploader.put.calculate_checksum(file.file)
+                local_digest = xnatuploader.put.calculate_checksum(anon_file)
                 if local_digest != remote_digest:
                     status[
                         file.file
@@ -152,3 +174,22 @@ def trigger_pipelines(xnat_session, project, uploads):
         except Exception as e:
             logger.info("Error while triggering metadata extraction / pipelines")
             logger.info(str(e))
+
+
+def parse_allow_fields(allow_fields):
+    """Takes a list of fields which we don't want stripped from the DICOMs
+    and tries to convert them to a custom ruleset for dicom-anonymiser. Raises
+    a ValueError on any tags which aren't in the DICOM spec."""
+
+    rules = {}
+
+    if allow_fields is not None:
+        for keyword in allow_fields.split(","):
+            try:
+                tag = Tag(keyword)
+                rules[(tag.group, tag.elem)] = keep
+            except ValueError:
+                raise ValueError(
+                    f"Unknown DICOM keyword {keyword} in AllowFields configuration"
+                )
+    return rules

@@ -20,6 +20,7 @@
   },
   "xnat": {
     "Project": "Test01",
-    "Server": "http://localhost:8080"
+    "Server": "http://localhost:8080",
+    "AllowFields": "StudyDate,AccessionNumber"
   }
 }
