@@ -11,6 +11,7 @@ from xnatuploader.xnatuploader import scan, upload
 from xnatuploader.matcher import Matcher
 from xnatuploader.dicoms import dicom_extractor, XNATFileMatch, SPREADSHEET_FIELDS
 from xnatuploader.workbook import new_workbook
+from xnatuploader.upload import parse_allow_fields
 
 
 @pytest.mark.parametrize("source_dir", ["basic", "bad_paths"])
@@ -26,6 +27,7 @@ def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_fil
             dicom_extractor,
             XNATFileMatch,
         )
+        anon_rules = parse_allow_fields(config["xnat"]["AllowFields"])
     project = xnat_connection.classes.ProjectData(
         parent=xnat_connection,
         name="Test_" + source_dir,
@@ -36,7 +38,7 @@ def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_fil
     new_workbook(log_scanned)
     scan(matcher, Path(test_dir), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
-    upload(xnat_connection, matcher, project.name, log_uploaded)
+    upload(xnat_connection, matcher, project.name, log_uploaded, anon_rules)
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
     uploads = {}
@@ -111,6 +113,7 @@ def test_missing_file(xnat_connection, tmp_path, test_files):
             dicom_extractor,
             XNATFileMatch,
         )
+        anon_rules = parse_allow_fields(config["xnat"]["AllowFields"])
     log_scanned = tmp_path / "log_scanned.xlsx"
     log_uploaded = tmp_path / "log_uploaded.xlsx"
     new_workbook(log_scanned)
@@ -132,7 +135,7 @@ def test_missing_file(xnat_connection, tmp_path, test_files):
                     ws.cell(i, 2).value = bad_file
 
     scanned_wb.save(log_uploaded)
-    upload(xnat_connection, matcher, project.name, log_uploaded)
+    upload(xnat_connection, matcher, project.name, log_uploaded, anon_rules)
     uploads = {}
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]

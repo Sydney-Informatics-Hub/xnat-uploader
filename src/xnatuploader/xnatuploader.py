@@ -18,7 +18,7 @@ from openpyxl import load_workbook
 from xnatuploader.matcher import Matcher
 from xnatuploader.dicoms import dicom_extractor, XNATFileMatch, SPREADSHEET_FIELDS
 from xnatuploader.workbook import new_workbook, add_filesheet, load_config
-from xnatuploader.upload import Upload, trigger_pipelines
+from xnatuploader.upload import Upload, trigger_pipelines, parse_allow_fields
 
 from xnatutils.base import sanitize_re
 
@@ -106,6 +106,7 @@ def upload(
     matcher,
     project,
     spreadsheet,
+    anon_rules,
     test=False,
     overwrite=False,
     nopipeline=False,
@@ -160,7 +161,11 @@ def upload(
                 for file in tqdm(upload.files, desc=session_scan):
                     logger.debug(f"Uploading {file.file}")
                     try:
-                        status = upload.upload([file], overwrite=overwrite)
+                        status = upload.upload(
+                            [file],
+                            overwrite=overwrite,
+                            anon_rules=anon_rules,
+                        )
                         file.status = status[file.file]
                     except KeyboardInterrupt:
                         if click.confirm(CONFIRM_KEYBOARD_QUIT_MSG):
@@ -503,6 +508,10 @@ debug messages
     else:
         server = opt_or_config(args, config["xnat"], "Server")
         project = opt_or_config(args, config["xnat"], "Project")
+        # not using opt_or_config for AllowFields as it's not mandatory
+        anon_rules = {}
+        if "AllowFields" in config["xnat"]:
+            anon_rules = parse_allow_fields(config["xnat"]["AllowFields"])
         logger.debug(f"Server = {server}")
         logger.debug(f"Project = {project}")
         xnat_session = xnatutils.base.connect(server)
@@ -511,6 +520,7 @@ debug messages
             matcher,
             project,
             args.spreadsheet,
+            anon_rules,
             args.test,
             args.overwrite,
             args.nopipeline,
