@@ -38,7 +38,7 @@ def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_fil
     new_workbook(log_scanned)
     scan(matcher, Path(test_dir), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
-    upload(xnat_connection, matcher, project.name, log_uploaded, anon_rules)
+    upload(xnat_connection, matcher, project.name, log_uploaded, anon_rules, False)
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
     uploads = {}
