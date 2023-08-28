@@ -26,6 +26,7 @@ class Upload:
     modality: str
     series_number: str
     scan_type: str
+    strict_scan_ids: bool
     manufacturer: str
     model: str
 
@@ -49,13 +50,16 @@ class Upload:
             self.files.append(file)
             return True
         else:
-            logger.error(
-                f"""
-{self.session_label} {file.filename} series number {file.series_number} does
-not match series number in scan ({self.series_number})
-"""
-            )
-            return False
+            message = f"{self.session_label} {file.filename} series number "
+            message += f"{file.series_number} does not match series number in"
+            message += f"scan ({self.series_number})"
+            if self.strict_scan_ids:
+                logger.error(message + " - strict scan id mode is on, skipping")
+                return False
+            else:
+                logger.warning(message)
+                self.files.append(file)
+                return True
 
     def start_upload(self, xnat_session, project):
         """Create a resource in the session for this scan"""

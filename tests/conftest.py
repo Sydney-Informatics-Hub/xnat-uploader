@@ -13,6 +13,16 @@ def test_files():
             "config": fixtures_dir / "config_basic.json",
             "config_excel": fixtures_dir / "basic_init.xlsx",
             "scanned_excel": fixtures_dir / "basic_scanned.xlsx",
+            "strict_scan_ids": False,
+            "uploads_dict": uploads_dict(False),
+        },
+        "basic_strict": {
+            "dir": fixtures_dir / "basic",
+            "config": fixtures_dir / "config_basic.json",
+            "config_excel": fixtures_dir / "basic_init.xlsx",
+            "scanned_excel": fixtures_dir / "basic_scanned_scan_ids.xlsx",
+            "strict_scan_ids": True,
+            "uploads_dict": uploads_dict(True),
         },
         "bad_paths": {
             "dir": fixtures_dir / "bad_paths",
@@ -31,13 +41,13 @@ def test_files():
 
 
 @pytest.fixture
-def uploads_dict():
+def uploads_dict_fixture():
     source_dir = Path("tests") / "fixtures/basic"
     return {
         "project": "Project",
         "skipped": 7,
         "uploads": {
-            "002304_CT1_3:Head_CT": [
+            "002304_CT1:Head_CT": [
                 str(
                     source_dir
                     / "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00000.dcm"
@@ -47,7 +57,7 @@ def uploads_dict():
                     / "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00001.dcm"
                 ),
             ],
-            "002304_CT1_6168:Neck_CT": [
+            "002304_CT1:Neck_CT": [
                 str(
                     source_dir
                     / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00000.dcm"
@@ -61,20 +71,106 @@ def uploads_dict():
                     / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00002.dcm"
                 ),
             ],
-            "397829_CT1_6168:SomeCT": [
+            "397829_CT1:SomeCT": [
                 str(source_dir / "ROE^JANE-397829/20190115/SomeCT/img-00000.dcm"),
             ],
-            "397829_CT2_6168:SomeCT": [
+            "397829_CT2:SomeCT": [
                 str(source_dir / "ROE^JANE-397829/20200623/SomeCT/img-00000.dcm"),
             ],
-            "397829_CT3_6168:SomeCT": [
+            "397829_CT3:SomeCT": [
                 str(source_dir / "ROE^JANE-397829/20210414/SomeCT/image-00000.dcm"),
             ],
-            "038945_CT1_6168:X_Rays": [
+            "038945_CT1:X_Rays": [
                 str(source_dir / "Smith^John-038945/20200303/X-Rays/img-00000.dcm"),
             ],
         },
     }
+
+
+def uploads_dict(strict_scan_ids=False):
+    source_dir = Path("tests") / "fixtures/basic"
+    BASE_UPLOADS = {
+        "002304_CT1:Head_CT": {
+            "scan_id": "3",
+            "files": [
+                "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00000.dcm",
+                "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00001.dcm",
+            ],
+        },
+        "002304_CT1:Neck_CT": {
+            "scan_id": "6168",
+            "files": [
+                "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00000.dcm",
+                "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00001.dcm",
+                "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00002.dcm",
+            ],
+        },
+        "397829_CT1:SomeCT": {
+            "scan_id": "6168",
+            "files": ["ROE^JANE-397829/20190115/SomeCT/img-00000.dcm"],
+        },
+        "397829_CT2:SomeCT": {
+            "scan_id": "6168",
+            "files": ["ROE^JANE-397829/20200623/SomeCT/img-00000.dcm"],
+        },
+        "397829_CT3:SomeCT": {
+            "scan_id": "6168",
+            "files": ["ROE^JANE-397829/20210414/SomeCT/image-00000.dcm"],
+        },
+        "038945_CT1:X_Rays": {
+            "scan_id": "6168",
+            "files": ["Smith^John-038945/20200303/X-Rays/img-00000.dcm"],
+        },
+    }
+
+    uploads = {}
+    for session_label, details in BASE_UPLOADS.items():
+        use_label = session_label
+        if strict_scan_ids:
+            parts = session_label.split(":")
+            use_label = parts[0] + "_" + details["scan_id"] + ":" + parts[1]
+        uploads[use_label] = [str(source_dir / f) for f in details["files"]]
+    return {"project": "Project", "skipped": 7, "uploads": uploads}
+
+    #     "uploads": {
+    #         "002304_CT1:Head_CT": [
+    #             str(
+    #                 source_dir
+    #                 / "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00000.dcm"
+    #             ),
+    #             str(
+    #                 source_dir
+    #                 / "DOE^JOHN-002304/20200312HeadCT/Head CT/image-00001.dcm"
+    #             ),
+    #         ],
+    #         "002304_CT1:Neck_CT": [
+    #             str(
+    #                 source_dir
+    #                 / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00000.dcm"
+    #             ),
+    #             str(
+    #                 source_dir
+    #                 / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00001.dcm"
+    #             ),
+    #             str(
+    #                 source_dir
+    #                 / "DOE^JOHN-002304/20200312HeadCT/Neck CT/image-00002.dcm"
+    #             ),
+    #         ],
+    #         "397829_CT1:SomeCT": [
+    #             str(source_dir / "ROE^JANE-397829/20190115/SomeCT/img-00000.dcm"),
+    #         ],
+    #         "397829_CT2:SomeCT": [
+    #             str(source_dir / "ROE^JANE-397829/20200623/SomeCT/img-00000.dcm"),
+    #         ],
+    #         "397829_CT3:SomeCT": [
+    #             str(source_dir / "ROE^JANE-397829/20210414/SomeCT/image-00000.dcm"),
+    #         ],
+    #         "038945_CT1:X_Rays": [
+    #             str(source_dir / "Smith^John-038945/20200303/X-Rays/img-00000.dcm"),
+    #         ],
+    #     },
+    # }
 
 
 @pytest.fixture

@@ -2,6 +2,7 @@ import logging
 import json
 from openpyxl import load_workbook
 from pathlib import Path
+import pytest
 
 from xnatuploader.matcher import Matcher
 from xnatuploader.dicoms import dicom_extractor, XNATFileMatch, SPREADSHEET_FIELDS
@@ -38,8 +39,10 @@ def test_scan(tmp_path, test_files):
     assert_worksheets_equal(expect_wb["Files"], got_wb["Files"])
 
 
-def test_collation(tmp_path, test_files, uploads_dict):
-    fileset = test_files["basic"]
+@pytest.mark.parametrize("source_dir", ["basic", "basic_strict"])
+def test_collation(source_dir, tmp_path, test_files):
+    fileset = test_files[source_dir]
+    uploads_dict = fileset["uploads_dict"]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(
         config["paths"],
@@ -50,7 +53,7 @@ def test_collation(tmp_path, test_files, uploads_dict):
     )
     log = tmp_path / "log.xlsx"
     new_workbook(log)
-    scan(matcher, Path(fileset["dir"]), log)
+    scan(matcher, Path(fileset["dir"]), log, strict_scan_ids=fileset["strict_scan_ids"])
     wb = load_workbook(log)
     ws = wb["Files"]
     header = True
@@ -61,7 +64,7 @@ def test_collation(tmp_path, test_files, uploads_dict):
         else:
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
-    skipped, uploads = collate_uploads(files)
+    skipped, uploads = collate_uploads(files, fileset["strict_scan_ids"])
     for session_scan, upload in uploads.items():
         uploads[session_scan] = [f.file for f in uploads[session_scan].files]
     assert uploads == uploads_dict["uploads"]
@@ -83,7 +86,7 @@ def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
     logger.warning(f"Testing santisation in {fileset}")
     log = tmp_path / "log.xlsx"
     new_workbook(log)
-    scan(matcher, Path(fileset["dir"]), log)
+    scan(matcher, Path(fileset["dir"]), log, strict_scan_ids=True)
     wb = load_workbook(log)
     ws = wb["Files"]
     header = True
@@ -95,15 +98,17 @@ def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
     logger.warning(f"File list = {files}")
-    skipped, uploads = collate_uploads(files)
+    skipped, uploads = collate_uploads(files, True)
     for session_scan, upload in uploads.items():
         uploads[session_scan] = [f.file for f in uploads[session_scan].files]
     assert uploads == sanitised_dict["uploads"]
     assert len(skipped) == sanitised_dict["skipped"]
 
 
-def test_collation_skips(tmp_path, test_files, uploads_dict):
-    fileset = test_files["basic"]
+@pytest.mark.parametrize("source_dir", ["basic", "basic_strict"])
+def test_collation_skips(tmp_path, test_files, source_dir):
+    fileset = test_files[source_dir]
+    uploads_dict = fileset["uploads_dict"]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(
         config["paths"],
@@ -114,7 +119,7 @@ def test_collation_skips(tmp_path, test_files, uploads_dict):
     )
     log = tmp_path / "log.xlsx"
     new_workbook(log)
-    scan(matcher, Path(fileset["dir"]), log)
+    scan(matcher, Path(fileset["dir"]), log, strict_scan_ids=fileset["strict_scan_ids"])
     wb = load_workbook(log)
     ws = wb["Files"]
     header = True
@@ -132,7 +137,7 @@ def test_collation_skips(tmp_path, test_files, uploads_dict):
                     logger.warning(f"Skipping {matchfile.file}")
                     n += 1
             files.append(matchfile)
-    skip, uploads = collate_uploads(files)
+    skip, uploads = collate_uploads(files, fileset["strict_scan_ids"])
     assert len(skip) == uploads_dict["skipped"] + skip_n
     for session_scan, upload in uploads.items():
         uploads[session_scan] = [f.file for f in uploads[session_scan].files]
@@ -159,7 +164,13 @@ def test_secret_pdfs(tmp_path, test_files):
     )
     scanned = tmp_path / "scanned.xlsx"
     new_workbook(scanned)
-    scan(matcher, Path(fileset["dir"]), scanned, include_unmatched=True)
+    scan(
+        matcher,
+        Path(fileset["dir"]),
+        scanned,
+        include_unmatched=True,
+        strict_scan_ids=True,
+    )
     expect_wb = load_workbook(fileset["scanned_excel"])
     got_wb = load_workbook(scanned)
     assert "Files" in got_wb
