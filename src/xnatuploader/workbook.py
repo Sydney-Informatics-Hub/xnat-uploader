@@ -59,17 +59,13 @@ def new_workbook(file):
     ws["C11"] = "DICOM:StudyDate"
     ws["B12"] = "Dataset"
     ws["C12"] = "Directory"
-    ws["A14"] = "Metadata"
-    ws["B14"] = "session_label"
-    ws["C14"] = "ID"
-    ws["D14"] = "StudyDate"
-    ws["A16"] = "XNAT"
-    ws["B16"] = "Project"
-    ws["C16"] = "Test001"
-    ws["B17"] = "Server"
-    ws["C17"] = "http://localhost:8080"
-    ws["B18"] = "AllowFields"
-    ws["C18"] = "AccessionNumber"
+    ws["A14"] = "XNAT"
+    ws["B14"] = "Project"
+    ws["C14"] = "Test001"
+    ws["B15"] = "Server"
+    ws["C15"] = "http://localhost:8080"
+    ws["B16"] = "AllowFields"
+    ws["C16"] = "AccessionNumber"
     wb.save(file)
 
 
@@ -113,7 +109,7 @@ def load_config(excelfile):
     ws = wb["Configuration"]
     config = {}
     section = None
-    sections = ["paths", "mappings", "metadata", "xnat"]
+    sections = ["paths", "mappings", "xnat"]
     for row in ws:
         if row[0].value is not None:
             section = row[0].value.lower()
