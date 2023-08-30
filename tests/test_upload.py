@@ -14,8 +14,11 @@ from xnatuploader.workbook import new_workbook
 from xnatuploader.upload import parse_allow_fields
 
 
+@pytest.mark.parametrize("anonymize", [False, True])
 @pytest.mark.parametrize("source_dir", ["basic", "bad_paths"])
-def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_files):
+def test_upload_from_spreadsheet(
+    source_dir, anonymize, xnat_connection, tmp_path, test_files
+):
     test_config = test_files[source_dir]["config"]
     test_dir = test_files[source_dir]["dir"]
     with open(test_config, "r") as fh:
@@ -38,7 +41,15 @@ def test_upload_from_spreadsheet(source_dir, xnat_connection, tmp_path, test_fil
     new_workbook(log_scanned)
     scan(matcher, Path(test_dir), log_scanned)
     shutil.copy(log_scanned, log_uploaded)
-    upload(xnat_connection, matcher, project.name, log_uploaded, anon_rules, False)
+    upload(
+        xnat_connection,
+        matcher,
+        project.name,
+        log_uploaded,
+        strict_scan_ids=False,
+        anonymize_files=anonymize,
+        anon_rules=anon_rules,
+    )
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
     uploads = {}
@@ -135,7 +146,15 @@ def test_missing_file(xnat_connection, tmp_path, test_files):
                     ws.cell(i, 2).value = bad_file
 
     scanned_wb.save(log_uploaded)
-    upload(xnat_connection, matcher, project.name, log_uploaded, anon_rules)
+    upload(
+        xnat_connection,
+        matcher,
+        project.name,
+        log_uploaded,
+        anonymize_files=False,
+        anon_rules=anon_rules,
+        strict_scan_ids=False,
+    )
     uploads = {}
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]

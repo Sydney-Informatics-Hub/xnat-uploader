@@ -113,11 +113,12 @@ def upload(
     matcher,
     project,
     spreadsheet,
-    anon_rules,
+    anon_rules=None,
+    anonymize_files=False,
     strict_scan_ids=False,
     test=False,
     overwrite=False,
-    nopipeline=False,
+    no_pipeline=False,
 ):
     """
     Load an Excel spreadsheet created with scan and upload the files which the user
@@ -171,6 +172,7 @@ def upload(
                     try:
                         status = upload.upload(
                             [file],
+                            anonymize_files=anonymize_files,
                             overwrite=overwrite,
                             anon_rules=anon_rules,
                         )
@@ -207,7 +209,7 @@ def upload(
                     written[file.file] = True
             if keyboard_quit:
                 break
-        if not nopipeline:
+        if not no_pipeline:
             trigger_pipelines(xnat_session, project, uploads)
 
         if keyboard_quit:
@@ -460,6 +462,12 @@ debug messages
         help="Whether to collate uploads by series number / scan id",
     )
     ap.add_argument(
+        "--anonymize",
+        action="store_true",
+        default=False,
+        help="Whether to anonymize files before uploading",
+    )
+    ap.add_argument(
         "--overwrite",
         action="store_true",
         default=False,
@@ -533,17 +541,19 @@ debug messages
             anon_rules = parse_allow_fields(config["xnat"]["AllowFields"])
         logger.debug(f"Server = {server}")
         logger.debug(f"Project = {project}")
+        logger.warning(f"anon_rules = {anon_rules}")
         xnat_session = xnatutils.base.connect(server)
         upload(
             xnat_session,
             matcher,
             project,
             args.spreadsheet,
-            anon_rules,
-            args.strict,
-            args.test,
-            args.overwrite,
-            args.nopipeline,
+            strict_scan_ids=args.strict,
+            anonymize_files=args.anonymize,
+            anon_rules=anon_rules,
+            test=args.test,
+            overwrite=args.overwrite,
+            no_pipeline=args.nopipeline,
         )
 
 
