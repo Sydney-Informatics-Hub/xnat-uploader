@@ -1,6 +1,5 @@
 import xnatuploader.put
 import os.path
-import shutil
 import logging
 from pathlib import Path
 import tempfile
@@ -80,6 +79,35 @@ class Upload:
 
     def upload(self, files, anonymize_files=True, overwrite=False, anon_rules=None):
         """
+        Makes )anonymised copies of a batch of files, uploads the anonymised
+        versions, checks the digests against the anonymised versions and then
+        cleans up. Returns a dict of success / error by the original filename
+
+        Args:
+            files: list of Matchfile
+            anonymize: anonymise the file before uploading
+            overwrite: boolean
+            anon_rules: None or dict of anonymisation rules
+        Returns:
+            dict of { str: str } with a status message, "success" or an error
+        ---
+        """
+        if anonymize_files:
+            return self.anonymize_and_upload(files, overwrite, anon_rules)
+        else:
+            for file in files:
+                fname = os.path.basename(file.file)
+                if fname in self.resource.files:
+                    if overwrite:
+                        self.resource.files[fname].delete()
+                logger.warning(f"uploading {file.file} {fname}")
+                self.resource.upload(file.file, fname)
+            return self.check_digests(files)
+
+    def anonymize_and_upload(
+        self, files, anonymize_files=True, overwrite=False, anon_rules=None
+    ):
+        """
         Makes anonymised copies of a batch of files, uploads the anonymised
         versions, checks the digests against the anonymised versions and then
         cleans up. Returns a dict of success / error by the original filename
@@ -97,30 +125,27 @@ class Upload:
             for file in files:
                 fname = os.path.basename(file.file)
                 upload_file = str(Path(tempdir) / fname)
-                if anonymize_files:
-                    if anon_rules is None:
-                        rules = {}
-                    else:
-                        rules = anon_rules
-                    logger.warning(f"anon_rules = {anon_rules}")
-                    try:
-                        logger.warning(f"Anonymizing {file.file} -> {upload_file}")
-                        logger.warning(f"anon {file.file} {upload_file} {rules}")
-                        anonymize(file.file, upload_file, rules, True)
-                    except Exception as e:
-                        logger.error(f"Error while anonymizing {file.file}")
-                        logger.error(str(e))
-                        return
+                if anon_rules is None:
+                    rules = {}
                 else:
-                    shutil.copy(file.file, upload_file)
+                    rules = anon_rules
+                logger.warning(f"anon_rules = {anon_rules}")
+                try:
+                    logger.warning(f"Anonymizing {file.file} -> {upload_file}")
+                    logger.warning(f"anon {file.file} {upload_file} {rules}")
+                    anonymize(file.file, upload_file, rules, True)
+                except Exception as e:
+                    logger.error(f"Error while anonymizing {file.file}")
+                    logger.error(str(e))
+                    return
                 if fname in self.resource.files:
                     if overwrite:
                         self.resource.files[fname].delete()
                 logger.warning(f"uploading {upload_file} {fname}")
                 self.resource.upload(upload_file, fname)
-            return self.check_digests(tempdir, files)
+            return self.check_digests(files, tempdir)
 
-    def check_digests(self, tempdir, files):
+    def check_digests(self, files, tempdir=None):
         """Check the digests of a batch of files, and returns a hash-by-filename
         of success or failure
         """
@@ -136,10 +161,10 @@ class Upload:
             }
         status = {}
         for file in files:
+            uploaded_file = file.file
             xnat_filename = os.path.basename(file.file)
-            uploaded_file = Path(tempdir) / xnat_filename
-            if not uploaded_file.is_file():
-                raise Exception(f"File not found: {uploaded_file}")
+            if tempdir:
+                uploaded_file = str(Path(tempdir) / xnat_filename)
             if xnat_filename not in digests:
                 status[
                     file.file
@@ -148,7 +173,7 @@ class Upload:
                 logger.error(digests)
             else:
                 remote_digest = digests[xnat_filename]
-                logger.warning(f"checking digest for {uploaded_file}")
+                logger.warning(f"checking digest against {uploaded_file}")
 
                 local_digest = xnatuploader.put.calculate_checksum(uploaded_file)
                 if local_digest != remote_digest:
