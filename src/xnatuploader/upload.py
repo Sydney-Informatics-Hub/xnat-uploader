@@ -26,6 +26,7 @@ class Upload:
     modality: str
     series_number: str
     scan_type: str
+    strict_scan_ids: bool
     manufacturer: str
     model: str
 
@@ -49,13 +50,16 @@ class Upload:
             self.files.append(file)
             return True
         else:
-            logger.error(
-                f"""
-{self.session_label} {file.filename} series number {file.series_number} does
-not match series number in scan ({self.series_number})
-"""
-            )
-            return False
+            message = f"{self.session_label} {file.filename} series number "
+            message += f"{file.series_number} does not match series number in"
+            message += f"scan ({self.series_number})"
+            if self.strict_scan_ids:
+                logger.error(message + " - strict scan id mode is on, skipping")
+                return False
+            else:
+                logger.warning(message)
+                self.files.append(file)
+                return True
 
     def start_upload(self, xnat_session, project):
         """Create a resource in the session for this scan"""
@@ -73,7 +77,35 @@ not match series number in scan ({self.series_number})
             connection=xnat_session,
         )
 
-    def upload(self, files, overwrite=False, anon_rules=None):
+    def upload(self, files, anonymize_files=True, overwrite=False, anon_rules=None):
+        """
+        Makes )anonymised copies of a batch of files, uploads the anonymised
+        versions, checks the digests against the anonymised versions and then
+        cleans up. Returns a dict of success / error by the original filename
+
+        Args:
+            files: list of Matchfile
+            anonymize: anonymise the file before uploading
+            overwrite: boolean
+            anon_rules: None or dict of anonymisation rules
+        Returns:
+            dict of { str: str } with a status message, "success" or an error
+        ---
+        """
+        if anonymize_files:
+            return self.anonymize_and_upload(files, overwrite, anon_rules)
+        else:
+            for file in files:
+                fname = os.path.basename(file.file)
+                if fname in self.resource.files:
+                    if overwrite:
+                        self.resource.files[fname].delete()
+                self.resource.upload(file.file, fname)
+            return self.check_digests(files)
+
+    def anonymize_and_upload(
+        self, files, anonymize_files=True, overwrite=False, anon_rules=None
+    ):
         """
         Makes anonymised copies of a batch of files, uploads the anonymised
         versions, checks the digests against the anonymised versions and then
@@ -81,23 +113,24 @@ not match series number in scan ({self.series_number})
 
         Args:
             files: list of Matchfile
+            anonymize: anonymise the file before uploading
             overwrite: boolean
             anon_rules: None or dict of anonymisation rules
         Returns:
             dict of { str: str } with a status message, "success" or an error
         ---
         """
-        if anon_rules is None:
-            rules = {}
-        else:
-            rules = anon_rules
         with tempfile.TemporaryDirectory() as tempdir:
             for file in files:
                 fname = os.path.basename(file.file)
-                anon_file = str(Path(tempdir) / fname)
+                upload_file = str(Path(tempdir) / fname)
+                if anon_rules is None:
+                    rules = {}
+                else:
+                    rules = anon_rules
                 try:
-                    logger.debug(f"Anonymizing {file.file} -> {anon_file}")
-                    anonymize(file.file, anon_file, rules, True)
+                    logger.debug(f"Anonymizing {file.file} -> {upload_file}")
+                    anonymize(file.file, upload_file, rules, True)
                 except Exception as e:
                     logger.error(f"Error while anonymizing {file.file}")
                     logger.error(str(e))
@@ -105,10 +138,11 @@ not match series number in scan ({self.series_number})
                 if fname in self.resource.files:
                     if overwrite:
                         self.resource.files[fname].delete()
-                self.resource.upload(anon_file, fname)
-            return self.check_digests(tempdir, files)
+                logger.warning(f"uploading {upload_file} {fname}")
+                self.resource.upload(upload_file, fname)
+            return self.check_digests(files, tempdir)
 
-    def check_digests(self, tempdir, files):
+    def check_digests(self, files, tempdir=None):
         """Check the digests of a batch of files, and returns a hash-by-filename
         of success or failure
         """
@@ -124,8 +158,10 @@ not match series number in scan ({self.series_number})
             }
         status = {}
         for file in files:
+            uploaded_file = file.file
             xnat_filename = os.path.basename(file.file)
-            anon_file = Path(tempdir) / xnat_filename
+            if tempdir:
+                uploaded_file = str(Path(tempdir) / xnat_filename)
             if xnat_filename not in digests:
                 status[
                     file.file
@@ -134,7 +170,8 @@ not match series number in scan ({self.series_number})
                 logger.error(digests)
             else:
                 remote_digest = digests[xnat_filename]
-                local_digest = xnatuploader.put.calculate_checksum(anon_file)
+
+                local_digest = xnatuploader.put.calculate_checksum(uploaded_file)
                 if local_digest != remote_digest:
                     status[
                         file.file

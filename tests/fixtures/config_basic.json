@@ -18,6 +18,9 @@
       "Directory"
     ]
   },
+  "metadata": {
+    "session_label": [ "ID", "DICOM:StudyDate" ]
+  },
   "xnat": {
     "Project": "Test01",
     "Server": "http://localhost:8080",

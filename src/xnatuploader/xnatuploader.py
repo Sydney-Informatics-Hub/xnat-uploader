@@ -40,7 +40,14 @@ CANNOT_CREATE_RE = re.compile("Cannot create session")
 logger = logging.getLogger(__name__)
 
 
-def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
+def scan(
+    matcher,
+    root,
+    spreadsheet,
+    include_unmatched=True,
+    strict_scan_ids=False,
+    debug=False,
+):
     """
     Scan the filesystem under root for files which match recipes and write
     out the resulting values to a new worksheet in the spreadsheet.
@@ -77,7 +84,7 @@ def scan(matcher, root, spreadsheet, include_unmatched=True, debug=False):
                     file.load_dicom()
                     unmatched.append(file)
 
-    skips, uploads = collate_uploads(files)
+    skips, uploads = collate_uploads(files, strict_scan_ids)
 
     ns = len(uploads)
     nm = len(files)
@@ -106,10 +113,12 @@ def upload(
     matcher,
     project,
     spreadsheet,
-    anon_rules,
+    anon_rules=None,
+    anonymize_files=False,
+    strict_scan_ids=False,
     test=False,
     overwrite=False,
-    nopipeline=False,
+    no_pipeline=False,
 ):
     """
     Load an Excel spreadsheet created with scan and upload the files which the user
@@ -142,7 +151,7 @@ def upload(
         else:
             matchfile = matcher.from_spreadsheet(row)
             files.append(matchfile)
-    skip, uploads = collate_uploads(files)
+    skip, uploads = collate_uploads(files, strict_scan_ids)
     csvout = get_csv_filename(spreadsheet)
     if test:
         dry_run(uploads)
@@ -163,6 +172,7 @@ def upload(
                     try:
                         status = upload.upload(
                             [file],
+                            anonymize_files=anonymize_files,
                             overwrite=overwrite,
                             anon_rules=anon_rules,
                         )
@@ -199,7 +209,7 @@ def upload(
                     written[file.file] = True
             if keyboard_quit:
                 break
-        if not nopipeline:
+        if not no_pipeline:
             trigger_pipelines(xnat_session, project, uploads)
 
         if keyboard_quit:
@@ -261,12 +271,12 @@ The results are available as a CSV file: {csvout}
         )
 
 
-def collate_uploads(files):
+def collate_uploads(files, strict_scan_ids):
     """
     Takes a list of files and collates them by subject (patient), visit
     index (starting from the earliest), scan type, and (optionally) scan_id,
     returning a list of files which have skipped or already uploaded and a dictionary
-    of Uploads keyed by {session_label}_{scan}_{scan_id}
+    of Uploads keyed by {session_label}_{scan_id}
 
     ---
     files: list of FileMatch
@@ -296,7 +306,10 @@ def collate_uploads(files):
             visit = visits[file.study_date]
             modality = file.modality
             scan_id = file.series_number
-            session_label = f"{subject_id}_{modality}{visit}_{scan_id}"
+            if strict_scan_ids:
+                session_label = f"{subject_id}_{modality}{visit}_{scan_id}"
+            else:
+                session_label = f"{subject_id}_{modality}{visit}"
             file.session_label = session_label
             scan_type = clean_datasets[file.dataset]
             session_scan = f"{session_label}:{scan_type}"
@@ -308,6 +321,7 @@ def collate_uploads(files):
                     modality=modality,
                     series_number=scan_id,
                     scan_type=scan_type,
+                    strict_scan_ids=strict_scan_ids,
                     manufacturer=file.manufacturer,
                     model=file.model,
                 )
@@ -442,6 +456,18 @@ debug messages
         help="Whether to include unmatched files in list",
     )
     ap.add_argument(
+        "--strict",
+        action="store_true",
+        default=False,
+        help="Whether to collate uploads by series number / scan id",
+    )
+    ap.add_argument(
+        "--anonymize",
+        action="store_true",
+        default=False,
+        help="Whether to anonymize files before uploading",
+    )
+    ap.add_argument(
         "--overwrite",
         action="store_true",
         default=False,
@@ -503,6 +529,7 @@ debug messages
             args.dir,
             args.spreadsheet,
             include_unmatched=args.unmatched,
+            strict_scan_ids=args.strict,
             debug=args.debug,
         )
     else:
@@ -520,10 +547,12 @@ debug messages
             matcher,
             project,
             args.spreadsheet,
-            anon_rules,
-            args.test,
-            args.overwrite,
-            args.nopipeline,
+            strict_scan_ids=args.strict,
+            anonymize_files=args.anonymize,
+            anon_rules=anon_rules,
+            test=args.test,
+            overwrite=args.overwrite,
+            no_pipeline=args.nopipeline,
         )
 
 
