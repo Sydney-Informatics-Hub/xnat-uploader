@@ -541,7 +541,6 @@ debug messages
             anon_rules = parse_allow_fields(config["xnat"]["AllowFields"])
         logger.debug(f"Server = {server}")
         logger.debug(f"Project = {project}")
-        logger.warning(f"anon_rules = {anon_rules}")
         xnat_session = xnatutils.base.connect(server)
         upload(
             xnat_session,
