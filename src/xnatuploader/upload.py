@@ -57,7 +57,7 @@ class Upload:
                 logger.error(message + " - strict scan id mode is on, skipping")
                 return False
             else:
-                logger.warning(message)
+                logger.debug(message)
                 self.files.append(file)
                 return True
 
