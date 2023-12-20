@@ -57,7 +57,7 @@ class Upload:
                 logger.error(message + " - strict scan id mode is on, skipping")
                 return False
             else:
-                logger.warning(message)
+                logger.debug(message)
                 self.files.append(file)
                 return True
 
@@ -79,9 +79,9 @@ class Upload:
 
     def upload(self, files, anonymize_files=True, overwrite=False, anon_rules=None):
         """
-        Makes )anonymised copies of a batch of files, uploads the anonymised
-        versions, checks the digests against the anonymised versions and then
-        cleans up. Returns a dict of success / error by the original filename
+        Uploads files, checks the digests and returns a dict of success / error
+        by the original filename. If anonymize_files is true, anonymises the
+        DICOMs before uploading.
 
         Args:
             files: list of Matchfile
@@ -103,9 +103,7 @@ class Upload:
                 self.resource.upload(file.file, fname)
             return self.check_digests(files)
 
-    def anonymize_and_upload(
-        self, files, anonymize_files=True, overwrite=False, anon_rules=None
-    ):
+    def anonymize_and_upload(self, files, overwrite=False, anon_rules=None):
         """
         Makes anonymised copies of a batch of files, uploads the anonymised
         versions, checks the digests against the anonymised versions and then
@@ -120,6 +118,7 @@ class Upload:
             dict of { str: str } with a status message, "success" or an error
         ---
         """
+        logger.warning(f"anonymize_and_upload anon rules {anon_rules}")
         with tempfile.TemporaryDirectory() as tempdir:
             for file in files:
                 fname = os.path.basename(file.file)
@@ -138,7 +137,6 @@ class Upload:
                 if fname in self.resource.files:
                     if overwrite:
                         self.resource.files[fname].delete()
-                logger.warning(f"uploading {upload_file} {fname}")
                 self.resource.upload(upload_file, fname)
             return self.check_digests(files, tempdir)
 
@@ -170,7 +168,6 @@ class Upload:
                 logger.error(digests)
             else:
                 remote_digest = digests[xnat_filename]
-
                 local_digest = xnatuploader.put.calculate_checksum(uploaded_file)
                 if local_digest != remote_digest:
                     status[
