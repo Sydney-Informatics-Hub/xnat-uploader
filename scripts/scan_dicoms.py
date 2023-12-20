@@ -3,10 +3,14 @@
 from pydicom import dcmread
 from pathlib import Path
 
-DIR = "tests/fixtures/"
+DIR = "./"
 
 for dicom in Path(DIR).glob("**/*.dcm"):
     dc = dcmread(dicom)
-    print(
-        f"{dicom},{dc.Modality},{dc.StudyDate},{dc.StudyDescription},{dc.SeriesNumber}"
-    )
+    try:
+        image_type = dc.ImageType
+    except Exception:
+        image_type = ["-", "-", "-"]
+    if not type(image_type) == list:
+        image_type = [image_type]
+    print(f"{dicom},{dc.Modality}," + ",".join(image_type))

@@ -28,6 +28,7 @@ def test_upload_from_spreadsheet(
             config["mappings"],
             SPREADSHEET_FIELDS,
             dicom_extractor,
+            {"skip_image_types": []},
             XNATFileMatch,
         )
         anon_rules = parse_allow_fields(config["xnat"]["AllowFields"])
@@ -49,6 +50,7 @@ def test_upload_from_spreadsheet(
         strict_scan_ids=False,
         anonymize_files=anonymize,
         anon_rules=anon_rules,
+        overwrite=True,
     )
     uploaded_wb = load_workbook(log_uploaded)
     uploaded_ws = uploaded_wb["Files"]
@@ -122,6 +124,7 @@ def test_missing_file(xnat_connection, tmp_path, test_files):
             config["mappings"],
             SPREADSHEET_FIELDS,
             dicom_extractor,
+            {"skip_image_types": []},
             XNATFileMatch,
         )
         anon_rules = parse_allow_fields(config["xnat"]["AllowFields"])
@@ -154,6 +157,7 @@ def test_missing_file(xnat_connection, tmp_path, test_files):
         anonymize_files=False,
         anon_rules=anon_rules,
         strict_scan_ids=False,
+        overwrite=True,
     )
     uploads = {}
     uploaded_wb = load_workbook(log_uploaded)

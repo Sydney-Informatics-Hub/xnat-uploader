@@ -81,7 +81,7 @@ def scan(
                 files.append(file)
             else:
                 if include_unmatched:
-                    file.load_dicom()
+                    file.load_dicom(matcher.extractor_options)
                     unmatched.append(file)
 
     skips, uploads = collate_uploads(files, strict_scan_ids)
@@ -513,12 +513,20 @@ debug messages
         exit()
 
     config = load_config(args.spreadsheet)
+    skip_image_types = []
+    if "SkipImageTypes" in config["xnat"]:
+        skip_image_types = config["xnat"]["SkipImageTypes"]
+        if skip_image_types is None:
+            skip_image_types = []
+        else:
+            skip_image_types = skip_image_types.split(",")
 
     matcher = Matcher(
         patterns=config["paths"],
         mappings=config["mappings"],
         fields=SPREADSHEET_FIELDS,
         file_extractor=dicom_extractor,
+        extractor_options={"skip_image_types": skip_image_types},
         match_class=XNATFileMatch,
         loglevel=loglevel,
     )
@@ -535,13 +543,15 @@ debug messages
     else:
         server = opt_or_config(args, config["xnat"], "Server")
         project = opt_or_config(args, config["xnat"], "Project")
-        # not using opt_or_config for AllowFields as it's not mandatory
+        anon_rules = opt_or_config(args, config["xnat"], "AllowFields")
+        # not using opt_or_config for AllowFields as it's config only
         anon_rules = {}
         if "AllowFields" in config["xnat"]:
             anon_rules = parse_allow_fields(config["xnat"]["AllowFields"])
         logger.debug(f"Server = {server}")
         logger.debug(f"Project = {project}")
         xnat_session = xnatutils.base.connect(server)
+        logger.debug(f"main anon rules {anon_rules}")
         upload(
             xnat_session,
             matcher,
