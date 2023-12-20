@@ -13,6 +13,6 @@ for dicom in Path(DIR).glob("**/*.dcm"):
         image_type = dc.ImageType
     except Exception:
         image_type = ["-", "-", "-"]
-    if not type(image_type) == list:
+    if type(image_type) is not list:
         image_type = [image_type]
     print(f"{dicom},{dc.Modality}," + ",".join(image_type))
