@@ -28,6 +28,7 @@ def test_scan(tmp_path, test_files):
         config["mappings"],
         SPREADSHEET_FIELDS,
         dicom_extractor,
+        {"skip_image_types": []},
         XNATFileMatch,
     )
     scanned = tmp_path / "scanned.xlsx"
@@ -49,6 +50,7 @@ def test_collation(source_dir, tmp_path, test_files):
         config["mappings"],
         SPREADSHEET_FIELDS,
         dicom_extractor,
+        {"skip_image_types": []},
         XNATFileMatch,
     )
     log = tmp_path / "log.xlsx"
@@ -81,6 +83,7 @@ def test_sanitisation_collisions(tmp_path, test_files, sanitised_dict):
         config["mappings"],
         SPREADSHEET_FIELDS,
         dicom_extractor,
+        {"skip_image_types": []},
         XNATFileMatch,
     )
     logger.warning(f"Testing santisation in {fileset}")
@@ -115,6 +118,7 @@ def test_collation_skips(tmp_path, test_files, source_dir):
         config["mappings"],
         SPREADSHEET_FIELDS,
         dicom_extractor,
+        {"skip_image_types": []},
         XNATFileMatch,
     )
     log = tmp_path / "log.xlsx"
@@ -160,6 +164,7 @@ def test_secret_pdfs(tmp_path, test_files):
         config["mappings"],
         SPREADSHEET_FIELDS,
         dicom_extractor,
+        {"skip_image_types": []},
         XNATFileMatch,
     )
     scanned = tmp_path / "scanned.xlsx"

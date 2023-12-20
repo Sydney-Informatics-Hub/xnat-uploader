@@ -79,9 +79,9 @@ class Upload:
 
     def upload(self, files, anonymize_files=True, overwrite=False, anon_rules=None):
         """
-        Makes )anonymised copies of a batch of files, uploads the anonymised
-        versions, checks the digests against the anonymised versions and then
-        cleans up. Returns a dict of success / error by the original filename
+        Uploads files, checks the digests and returns a dict of success / error
+        by the original filename. If anonymize_files is true, anonymises the
+        DICOMs before uploading.
 
         Args:
             files: list of Matchfile
@@ -103,9 +103,7 @@ class Upload:
                 self.resource.upload(file.file, fname)
             return self.check_digests(files)
 
-    def anonymize_and_upload(
-        self, files, anonymize_files=True, overwrite=False, anon_rules=None
-    ):
+    def anonymize_and_upload(self, files, overwrite=False, anon_rules=None):
         """
         Makes anonymised copies of a batch of files, uploads the anonymised
         versions, checks the digests against the anonymised versions and then
@@ -120,6 +118,7 @@ class Upload:
             dict of { str: str } with a status message, "success" or an error
         ---
         """
+        logger.warning(f"anonymize_and_upload anon rules {anon_rules}")
         with tempfile.TemporaryDirectory() as tempdir:
             for file in files:
                 fname = os.path.basename(file.file)
@@ -130,6 +129,8 @@ class Upload:
                     rules = anon_rules
                 try:
                     logger.debug(f"Anonymizing {file.file} -> {upload_file}")
+                    logger.warning(f"Anonymizing {file.file} -> {upload_file}")
+                    logger.warning(rules)
                     anonymize(file.file, upload_file, rules, True)
                 except Exception as e:
                     logger.error(f"Error while anonymizing {file.file}")
