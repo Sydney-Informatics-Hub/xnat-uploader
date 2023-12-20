@@ -66,6 +66,8 @@ def new_workbook(file):
     ws["C15"] = "http://localhost:8080"
     ws["B16"] = "AllowFields"
     ws["C16"] = "AccessionNumber"
+    ws["B17"] = "SkipImageTypes"
+    ws["C17"] = "DOSE_INFO"
     wb.save(file)
 
 
