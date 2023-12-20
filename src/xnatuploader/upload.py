@@ -129,8 +129,6 @@ class Upload:
                     rules = anon_rules
                 try:
                     logger.debug(f"Anonymizing {file.file} -> {upload_file}")
-                    logger.warning(f"Anonymizing {file.file} -> {upload_file}")
-                    logger.warning(rules)
                     anonymize(file.file, upload_file, rules, True)
                 except Exception as e:
                     logger.error(f"Error while anonymizing {file.file}")
@@ -139,7 +137,6 @@ class Upload:
                 if fname in self.resource.files:
                     if overwrite:
                         self.resource.files[fname].delete()
-                logger.warning(f"uploading {upload_file} {fname}")
                 self.resource.upload(upload_file, fname)
             return self.check_digests(files, tempdir)
 
@@ -171,7 +168,6 @@ class Upload:
                 logger.error(digests)
             else:
                 remote_digest = digests[xnat_filename]
-
                 local_digest = xnatuploader.put.calculate_checksum(uploaded_file)
                 if local_digest != remote_digest:
                     status[
