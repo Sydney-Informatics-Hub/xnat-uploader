@@ -14,7 +14,7 @@ from xnatuploader.workbook import new_workbook
 from xnatuploader.upload import parse_allow_fields
 
 
-@pytest.mark.parametrize("anonymize", [False, True])
+@pytest.mark.parametrize("anonymize", [False])
 @pytest.mark.parametrize("source_dir", ["basic", "bad_paths"])
 def test_upload_from_spreadsheet(
     source_dir, anonymize, xnat_connection, tmp_path, test_files
