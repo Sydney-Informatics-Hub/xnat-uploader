@@ -5,6 +5,8 @@ from pathlib import Path
 
 DIR = "./"
 
+# Added a comment to trigger pre-commit
+
 for dicom in Path(DIR).glob("**/*.dcm"):
     dc = dcmread(dicom)
     try:
