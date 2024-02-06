@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.6]
+
+Bugfix:
+
+- Filename matching had magical behaviour which treated the first character
+  after a {capture} pattern as a delimiter, and excluded it from the capture -
+  this meant that the pattern "{filename}.dcm" wouldn't match a file with 
+  a period in the basename like "0000.0001.dcm".  Have removed the magical
+  behaviour.
+
 ## [1.1.5]
 
 Features:
