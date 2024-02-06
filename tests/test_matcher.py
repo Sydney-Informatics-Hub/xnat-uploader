@@ -41,7 +41,7 @@ def random_word():
 
 def random_id():
     n = random.randint(1, 8)
-    return "".join([random.choice(string.digits + "-_") for i in range(n)])
+    return "".join([random.choice(string.digits + "._") for i in range(n)])
 
 
 def random_date():
