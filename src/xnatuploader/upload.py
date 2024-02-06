@@ -161,18 +161,18 @@ class Upload:
             if tempdir:
                 uploaded_file = str(Path(tempdir) / xnat_filename)
             if xnat_filename not in digests:
-                status[
-                    file.file
-                ] = f"File {file.file} {xnat_filename} not found in digests"
+                status[file.file] = (
+                    f"File {file.file} {xnat_filename} not found in digests"
+                )
                 logger.error(status[file.file])
                 logger.error(digests)
             else:
                 remote_digest = digests[xnat_filename]
                 local_digest = xnatuploader.put.calculate_checksum(uploaded_file)
                 if local_digest != remote_digest:
-                    status[
-                        file.file
-                    ] = f"Digest mismatch {local_digest} {remote_digest}"
+                    status[file.file] = (
+                        f"Digest mismatch {local_digest} {remote_digest}"
+                    )
                     logger.error(file.file + ": " + status[file.file])
                 else:
                     status[file.file] = "success"
