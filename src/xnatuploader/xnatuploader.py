@@ -81,7 +81,7 @@ def scan(
                 files.append(file)
             else:
                 if include_unmatched:
-                    file.load_dicom(matcher.extractor_options)
+                    file.load_dicom()
                     unmatched.append(file)
 
     skips, uploads = collate_uploads(files, strict_scan_ids)
@@ -513,20 +513,12 @@ debug messages
         exit()
 
     config = load_config(args.spreadsheet)
-    skip_image_types = []
-    if "SkipImageTypes" in config["xnat"]:
-        skip_image_types = config["xnat"]["SkipImageTypes"]
-        if skip_image_types is None:
-            skip_image_types = []
-        else:
-            skip_image_types = skip_image_types.split(",")
 
     matcher = Matcher(
         patterns=config["paths"],
         mappings=config["mappings"],
         fields=SPREADSHEET_FIELDS,
         file_extractor=dicom_extractor,
-        extractor_options={"skip_image_types": skip_image_types},
         match_class=XNATFileMatch,
         loglevel=loglevel,
     )

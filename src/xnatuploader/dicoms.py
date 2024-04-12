@@ -27,18 +27,17 @@ SPREADSHEET_FIELDS = [
 logger = logging.getLogger(__name__)
 
 
-def dicom_extractor(file, options):
+def dicom_extractor(file):
     """
     Try to extract DICOM metadata from a file, and check that it doesn't
     have an encapsulated document, or is of modality SR (which is a special
-    type reserved for reports).
+    type reserved for reports), or has image type DOSE_INFO (which makes
+    XNAT break on metadata extraction)
 
     Raises ExtractException if the file is not a DICOM, has an embedded
-    report or the wrong modality, or one of skip_image_types - this is passed
-    in so that it can be controlled by configuration rather than hard-coded
+    report or the wrong modality
     ---
     file: pathlib.Path
-    options: { str: [ str ]}
 
     returns: {str: str}
 
@@ -58,9 +57,8 @@ def dicom_extractor(file, options):
     if values["DICOM:Modality"] == "SR":
         raise ExtractException("DICOM is an SR (structured report)")
     image_type = dc_meta.get("ImageType")
-    if "skip_image_types" in options and image_type:
-        if image_type[2] in options["skip_image_types"]:
-            raise ExtractException(f"DICOM has banned image type '{image_type[2]}'")
+    if image_type[2] == "DOSE_INFO":
+        raise ExtractException("DICOM has ImageType DOSE_INFO")
     return values
 
 
@@ -70,13 +68,13 @@ class XNATFileMatch(FileMatch):
     metadata.
     """
 
-    def load_dicom(self, options):
+    def load_dicom(self):
         """
         Utility method used to load the dicom metadata for an umatched file
         so that it can be written to the spreadsheet
         """
         try:
-            dicom_values = dicom_extractor(self.file, options)
+            dicom_values = dicom_extractor(self.file)
             if dicom_values is not None:
                 for key, value in dicom_values.items():
                     self[key] = value
