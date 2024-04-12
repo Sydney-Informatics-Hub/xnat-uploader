@@ -28,7 +28,6 @@ def test_upload_from_spreadsheet(
             config["mappings"],
             SPREADSHEET_FIELDS,
             dicom_extractor,
-            {"skip_image_types": []},
             XNATFileMatch,
         )
         anon_rules = parse_allow_fields(config["xnat"]["AllowFields"])
@@ -124,7 +123,6 @@ def test_missing_file(xnat_connection, tmp_path, test_files):
             config["mappings"],
             SPREADSHEET_FIELDS,
             dicom_extractor,
-            {"skip_image_types": []},
             XNATFileMatch,
         )
         anon_rules = parse_allow_fields(config["xnat"]["AllowFields"])

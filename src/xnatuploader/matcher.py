@@ -89,10 +89,6 @@ class Matcher:
     file_extractor is a function which does application-specific metadata
     extraction: it's up to the calling code to make sure that the values it
     sets are coordinated with the values extracted by the patterns and mappings
-
-    extractor_options is application-specific config which is passed to
-    file_extractor along with the filepath, if there's a need to skip certain
-    files at this stage based on a config setting
     """
 
     def __init__(
@@ -101,7 +97,6 @@ class Matcher:
         mappings,
         fields,
         file_extractor=None,
-        extractor_options=None,
         match_class=FileMatch,
         loglevel="WARNING",
     ):
@@ -118,7 +113,6 @@ class Matcher:
         logger.addHandler(logch)
         self.mappings = mappings
         self.file_extractor = file_extractor
-        self.extractor_options = extractor_options
         self.match_class = match_class
         self.fields = fields
         self._headers = None
@@ -295,10 +289,7 @@ class Matcher:
         if label:
             if self.file_extractor is not None:
                 try:
-                    file_values = self.file_extractor(
-                        filepath,
-                        self.extractor_options,
-                    )
+                    file_values = self.file_extractor(filepath)
                 except ExtractException as e:
                     match = self.match_class(self, filepath)
                     match.status = "unmatched"

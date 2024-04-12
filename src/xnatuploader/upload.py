@@ -199,15 +199,13 @@ def trigger_pipelines(xnat_session, project, uploads):
     """
     sessions = {upload.session_label: upload.subject for upload in uploads.values()}
     for session, subject in sessions.items():
-        try:
-            logger.debug(f"Pipelines for {project} / {subject} / {session}")
-            uri = f"/data/projects/{project}/subjects/{subject}/experiments/{session}"
-            xnat_session.put(f"{uri}?pullDataFromHeaders=true")
-            xnat_session.put(f"{uri}?fixScanTypes=true")
-            xnat_session.put(f"{uri}?triggerPipelines=true")
-        except Exception as e:
-            logger.info("Error while triggering metadata extraction / pipelines")
-            logger.info(str(e))
+        uri = f"/data/projects/{project}/subjects/{subject}/experiments/{session}"
+        for cmd in ["pullDataFromHeaders", "fixScanTypes", "triggerPipelines"]:
+            try:
+                xnat_session.put(f"{uri}?{cmd}=true")
+            except Exception as e:
+                logger.error(f"Error on trigger {cmd} for {subject} {session}")
+                logger.error(str(e))
 
 
 def parse_allow_fields(allow_fields):
