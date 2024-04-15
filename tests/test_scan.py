@@ -152,8 +152,9 @@ def test_collation_skips(tmp_path, test_files, source_dir):
     assert uploads == upload_skipped
 
 
-def test_secret_pdfs(tmp_path, test_files):
-    fileset = test_files["secret_pdf"]
+@pytest.mark.parametrize("forbidden", ["secret_pdf", "dose_info"])
+def test_secret_pdfs(tmp_path, test_files, forbidden):
+    fileset = test_files[forbidden]
     config = load_config(fileset["config_excel"])
     matcher = Matcher(
         config["paths"],

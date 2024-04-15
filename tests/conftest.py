@@ -33,6 +33,11 @@ def test_files():
             "config_excel": fixtures_dir / "basic_init.xlsx",
             "scanned_excel": fixtures_dir / "secret_pdf_scanned.xlsx",
         },
+        "dose_info": {
+            "dir": fixtures_dir / "dose_info",
+            "config_excel": fixtures_dir / "basic_init.xlsx",
+            "scanned_excel": fixtures_dir / "dose_info_scanned.xlsx",
+        },
         "sanitisation": {
             "dir": fixtures_dir / "sanitisation",
             "config": fixtures_dir / "config_basic.json",
