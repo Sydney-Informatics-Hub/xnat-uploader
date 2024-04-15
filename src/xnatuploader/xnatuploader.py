@@ -15,7 +15,7 @@ __version__ = version("xnatuploader")
 
 from openpyxl import load_workbook
 
-from xnatuploader.matcher import Matcher
+from xnatuploader.matcher import Matcher, ExtractException
 from xnatuploader.dicoms import dicom_extractor, XNATFileMatch, SPREADSHEET_FIELDS
 from xnatuploader.workbook import new_workbook, add_filesheet, load_config
 from xnatuploader.upload import Upload, trigger_pipelines, parse_allow_fields
@@ -294,9 +294,12 @@ def collate_uploads(files, strict_scan_ids):
                 logger.debug(f"skipping file already uploaded {file.file}")
                 skip.append(file)
             else:
-                if file["Subject"] not in subjects:
-                    subjects[file["Subject"]] = []
-                subjects[file["Subject"]].append(file)
+                if not check_safe_dicom(file):
+                    skip.append(file)
+                else:
+                    if file["Subject"] not in subjects:
+                        subjects[file["Subject"]] = []
+                    subjects[file["Subject"]].append(file)
     uploads = {}
     for subject_id, files in subjects.items():
         dates = sorted(set([file.study_date for file in files]))
@@ -354,6 +357,19 @@ def sanitise_dataset_names(files):
             clean[file.dataset] = sanitised
             used.append(sanitised)
     return clean
+
+
+def check_safe_dicom(file):
+    """Extra test to make sure that we don't try to upload a dicom with one
+    of the forbidden conditions, even though this is tested for at scan time"""
+    try:
+        dicom_extractor(file.file)
+        return True
+    except ExtractException as e:
+        logger.warning(f"Skipping bad file {file.file}: {e}")
+    except Exception as e:
+        logger.warning(f"Can't upload {file.file}: {e}")
+    return False
 
 
 def get_csv_filename(spreadsheet):
