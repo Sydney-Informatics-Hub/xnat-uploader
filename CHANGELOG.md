@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.7]
+
+Bugfix:
+
+- Files with a value of DOSE_INFO in the third item of ImageType are now 
+  always skipped when scanning, rather than this behaviour being dependent on
+  config (introduced in 1.1.5) - this is because they have been breaking
+  pipeline extraction on the server and leaving sessions with a blank
+  StudyDate, so there's no real reason not to exclude them.
+
+  An additional test was added to make sure DICOMs are ok before uploading them,
+  and error handling around pipeline triggers has been improved.
+
 ## [1.1.6]
 
 Bugfix:
