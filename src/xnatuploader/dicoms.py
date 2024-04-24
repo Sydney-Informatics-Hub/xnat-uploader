@@ -57,8 +57,9 @@ def dicom_extractor(file):
     if values["DICOM:Modality"] == "SR":
         raise ExtractException("DICOM is an SR (structured report)")
     image_type = dc_meta.get("ImageType")
-    if image_type[2] == "DOSE_INFO":
-        raise ExtractException("DICOM has ImageType DOSE_INFO")
+    if len(image_type) > 2:
+        if image_type[2] == "DOSE_INFO":
+            raise ExtractException("DICOM has ImageType DOSE_INFO")
     return values
 
 
